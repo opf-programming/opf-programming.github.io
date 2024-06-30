@@ -1,0 +1,390 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - What is `OPF Programming`?</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>What is <code>OPF Programming</code>?</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-05-28T15:32:00+08:00</div>
+				<div class="article-tags">OPF Programming</div>
+			</div>
+			<h1>Introduction</h1>
+<p><code>OPF Programming</code> (<code>O</code>ne <code>P</code>oint <code>F</code>ive Programming) is a programming paradigm with clear definition.</p>
+<p>It contains two parts:</p>
+<ul>
+<li>The core <code>One</code>: Modular programming, use <code>struct</code> to organize code as much as we can.</li>
+<li>The skill <code>Point Five</code>: Represented by a C expression: <code>(*p)-&gt;f(p)</code>.</li>
+</ul>
+<p>The skill <code>(*p)-&gt;f(p)</code> is important and practical, but it is not as changeful as the <code>One</code> part,
+so it&#39;s counted as a half one, this is how the name <code>OPF</code> comes.</p>
+<p><code>OPF Programming</code> is a generic programming paradigm. It can be used on languages
+like <code>TypeScript</code>/<code>JavaScript</code>, <code>Lua</code>, etc.</p>
+<p><code>OPF Programming</code> can be used on <code>C++</code>, <code>Java</code> and <code>C#</code>. But it would be strange since those languages
+have already supported concepts like <code>interface</code>.</p>
+<p><code>OPF Programming</code> can <strong>NOT</strong> be used on functional languages
+who support <strong>only</strong> immutable data (like <code>Erlang</code>).</p>
+<p>The best platform for <code>OPF Programming</code> is the C programming languge.</p>
+<h1>The <code>One</code></h1>
+<p>For a long time, the power of <code>Modular Programming</code> has been underestimated.
+It&#39;s buried in the ocean of computer terms.</p>
+<p>Some people think they know what <code>Modular Programming</code> is, but actually they just know the descriptions on modular programming.
+They can&#39;t write their code in the modular way in daily programming.</p>
+<p>Here is a simple program to demonstrate the benifits of modular programming:</p>
+<pre><code class="language-c">int blah(int *result)
+{
+	int v1 = 0;
+	double v3 = 0;
+	char v4 = 0;
+	long v2 = 0;
+
+	if (v1 &gt; 10 &amp;&amp; v2 &gt; 2*10 &amp;&amp; v2 &lt; 8*10) {
+		if (v1 &gt; 10)
+			return 1;
+		v2 /= 3;
+		v1 += v1 * v2 + 3;
+		if (v1 &gt; 10)
+			return 1;
+	}
+
+	if (v3 &gt; 2 &amp;&amp; (v3 * v4 &gt; v3 / v4 - 5)) {
+		if (v3 &lt; 0 || v3 &gt; v1)
+			return 2;
+		v3 += v4 * 3.1415926 + 3;
+		if (v3 &gt; 10)
+			return 2;
+	}
+
+	*result = (v1 + v1 * v2 - v2) / (v3 / v4 - v4);
+
+	return 0;
+}
+</code></pre>
+<p>This piece of code is hard to read. We can not know the relations among those variables.
+And it&#39;s hard to figure out the logic what those operations mean.</p>
+<p>We can only rely on comments written by the author.</p>
+<p>But comments is not the best solution since they are not part of the code.
+It can be a disaster if we changed the code and forgot to change the comments (which is common).</p>
+<p>If we write our code in a more modular way, it may look like this:</p>
+<pre><code class="language-c">int blah(int *result)
+{
+	struct d1 e1 = {0, 0};
+	struct d2 e2 = {0, 0};
+
+	if (d1_check_with(&amp;e1, 10)) {
+		if (d1_fix(&amp;e1))
+			return 1;
+	}
+
+	if (d2_check_with(&amp;e2, 5)) {
+		if (d2_fix(&amp;e2, e1.v1))
+			return 2;
+	}
+
+	*result = d1_generate(&amp;e1) / d2_generate(&amp;e2);
+
+	return 0;
+}
+</code></pre>
+<p>Now it&#39;s much easier to understand the logic.</p>
+<p>Data which used to be mixed together are splited into different structs now:</p>
+<pre><code class="language-c">struct d1 {
+	int v1;
+	long v2;
+}
+</code></pre>
+<pre><code class="language-c">struct d2 {
+	double v3;
+	int v4;
+}
+</code></pre>
+<p>And the related logic are splited into different logic unit, too:</p>
+<pre><code class="language-c">int d1_check_with(struct d1 *self, int n)
+{
+	return v1 &gt; n &amp;&amp; v2 &gt; n*2 &amp;&amp; v2 &lt; n*8;
+}
+
+int d1_fix(struct d1 *self)
+{
+	if (self-&gt;v1 &gt; 10)
+		return 1;
+
+	self-&gt;v2 /= 3;
+	self-&gt;v1 += self-&gt;v1 * v2 + 3;
+
+	if (self-&gt;v1 &gt; 10)
+		return 2;
+
+	return 0;
+}
+</code></pre>
+<pre><code class="language-c">int d2_check_with(struct d2 *self, int offset)
+{
+	return v3 &gt; 2 &amp;&amp; (v3 * v4 &gt; v3 / v4 - offset);
+}
+
+int d2_fix(struct d2 *self, int v1)
+{
+	if (self-&gt;v3 &lt; 0 || self-&gt;v3 &gt; v1)
+		return 1;
+
+	self-&gt;v3 += self-&gt;v4 * 3.1415926 + 3;
+
+	if (self-&gt;v3 &gt; 10)
+		return 2;
+
+	return 0;
+}
+</code></pre>
+<p>This example is simple, but we can understand the benifits of modular programming to some extent.</p>
+<p>The more complex the programs are, the more powerful modular programming can be.</p>
+<p>There are something in the world which looks huge, but when we understand it, it becomes tiny.
+There are something in the world which looks tiny, but when we understand it, it becomes huge.</p>
+<p>Modular Programming is the later kind.</p>
+<h1>The <code>Point Five</code></h1>
+<p>The skill part, <code>Point Five</code>, have already been printed into our LOGO: <code>(*p)-&gt;f(p)</code>.</p>
+<p>Before the explanations, we would like to show this graph first:</p>
+<pre><code>  VARIABLE           OBJECT             INTERFACE
+  +--------+  .---&gt;  +--------+  .---&gt;  +--------+
+  |     ---+--&#39;      |     ---+--&#39;      |   f1   |
+  +--------+         +--------+         +--------+
+                     |        |         |   f2   |
+                     |        |         +--------+
+                     |        |
+                     |        |
+                     +--------+
+</code></pre>
+<p>This graph has shown how <code>(*p)-&gt;f(p)</code> works.</p>
+<p>The ultimate aim of this skill, is to provide a <code>Top-Down</code> programming way, which is the key to build huge program.</p>
+<p>Simple programs are designed in the <code>Bottom-Up</code> style:
+We implement <code>A</code>, then implement <code>B</code> on <code>A</code>, then implement the final <code>C</code> on <code>B</code>.</p>
+<p>But in the <code>Top-Down</code> style:
+We implement part of <code>C</code>, then someone else implement <code>B</code>, then <code>B</code> and <code>C</code> are combined as the final program.</p>
+<p><code>Top-Down</code> and <code>Buttom-Up</code> can be combined.</p>
+<p>For example, the <code>A-B</code> part is <code>Top-Down</code> while the <code>B-C</code> part is <code>Buttom-Up</code>.
+Or the <code>B-C</code> part is <code>Top-Down</code> while the <code>A-B</code> part is <code>Buttom-Up</code>.</p>
+<p>Let&#39;s use an example to explain it more clear:</p>
+<p>Say, we want to write a set of function like <code>draw_rect</code>, <code>draw_circle</code>, which support different printing targets.</p>
+<p>How to do that? If we have a generic <code>draw_point</code>, it would be easy to implement those function.
+So the problem got converted into:</p>
+<blockquote>
+<p>How to implement a generic <code>draw_point</code>.</p>
+</blockquote>
+<p>With the <code>Point Five</code> skill, we write a interface struct like this:</p>
+<pre><code class="language-c">typedef int (*painter_draw_point_fn_t)(void *self, struct point pos, int color);
+
+struct painter_i {
+	painter_draw_point_fn_t draw_point;
+};
+</code></pre>
+<p>Now, here comes the magical part: We can implement the drawing function without any real screen drivers!</p>
+<pre><code class="language-c">int draw_rect(struct painter_i **painter, struct point p1, struct point p2, int color)
+{
+	struct point c;
+
+	/// ...
+
+	for (/* get the next point to draw and store the point in c */) {
+
+		/// (*p)-&gt;f(p)
+		(*painter)-&gt;draw_point(painter, c, color);
+
+
+	}
+
+	/// ...
+
+	return 0;
+}
+</code></pre>
+<p>This is the <code>Top-Down</code> design: We implement the upper logic, then the lower logic.</p>
+<p>Now let&#39;s implement a RGB screen driver:</p>
+<pre><code class="language-c">struct rgb_screen {
+	struct painter_i *interface;	// this field has to be the first field of rgb_screen.
+	int color_type;
+	int color_mask;
+	/// ...
+};
+</code></pre>
+<pre><code class="language-c">int rgb_screen_draw_point(struct rgb_screen *self, struct point pos, int color)
+{
+	/// Draw point on the RGB screen, `self-&gt;color_type` and `self-&gt;color_mask` will be used here.
+}
+
+struct pointer_i rgb_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)rgb_screen_draw_point,
+};
+
+int rgb_screen_init(struct rgb_screen *self)
+{
+	self-&gt;interface = &amp;rgb_screen_interface;
+}
+</code></pre>
+<p>Then let&#39;s implement a mono screen driver:</p>
+<pre><code class="language-c">struct mono_screen {
+	struct painter_i *interface;	// this field has to be the first field of mono_screen.
+	unsigned char bit_buffer[1024*768];
+	/// ...
+};
+</code></pre>
+<pre><code class="language-c">int mono_screen_draw_point(struct mono_screen *self, struct point pos, int color)
+{
+	/// Draw point on the mono screen, `self-&gt;bit_buffer` will be used here.
+}
+
+struct pointer_i mono_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)mono_screen_draw_point,
+};
+
+int mono_screen_init(struct mono_screen *self)
+{
+	self-&gt;interface = &amp;mono_screen_interface;
+}
+</code></pre>
+<p>Now here is how we use the code:</p>
+<pre><code class="language-c">struct rgb_screen scr1;
+struct mono_screen scr2;
+
+/// ...
+
+draw_rect(&amp;scr1, p1, p2, RED);
+draw_rect(&amp;scr2, p1, p2, WHITE);
+
+draw_circle(&amp;scr1, p1, 10, RED);
+draw_circle(&amp;scr2, p1, 10, RED);
+</code></pre>
+<p>You may feel <code>OPF Programming</code> a little bit complex, and don&#39;t understand why those things are done.
+But when we get more familiar with this skill, we can construct the whole thing inside our head without effort.</p>
+<h1>Rules and Styles</h1>
+<p>The core concept of <code>OPF Programming</code> do not have coding rules, but a good coding rule can make communication easier.
+After some practice, some simple rules are collected:</p>
+<ol>
+<li>Methods use their first parameters as the owner pointers, and the name <code>self</code> is suggested.</li>
+<li>Interface structs should be named with suffix <code>_i</code>. e.g. <code>struct painter_i</code>, <code>struct iter_i</code>, etc.</li>
+<li>Methods should be named as <code>OWNER</code>_<code>METHOD</code>. e.g. The <code>add</code> method of <code>struct my_vec</code> should be named <code>my_vec_add</code>.</li>
+<li>Function only return <code>status code</code>/<code>error code</code>, results are passed out though a pointer argument.</li>
+<li>Follow the <a href="https://www.kernel.org/doc/html/v6.6/process/coding-style.html">Linux kernel coding style</a>. (Use 8-character hard TAB instead of indentations)</li>
+</ol>
+<p><strong>Explanations for the 4th Rule</strong></p>
+<p>Many C code return the result directly, and return error code through argument pointer.</p>
+<p>e.g.</p>
+<pre><code class="language-c">int fn(int a, int b, int *error)
+{
+	if (some_check()) {
+		*error = CODE_xxx;
+		return SOMETHING;
+	}
+
+	return a + b;
+}
+</code></pre>
+<p>But the <code>OPF Programming</code> use the following style:</p>
+<pre><code class="language-c">int fn(int a, int b, int *result)
+{
+	if (some_check())
+		return CODE_xxx;
+
+	*result = a + b;
+	return 0;
+}
+</code></pre>
+<p>Error code are returned, and result is return through argument pointer.
+Returning 0 means success.</p>
+<blockquote>
+<p>Some coding styles return booleans, which means <code>1</code> means success, this is different from <code>OPF Programming</code>.</p>
+</blockquote>
+<p><strong>Explanations for the 5th Rule</strong></p>
+<p>There are 2 reasons for choosing Linux kernel coding style:</p>
+<ul>
+<li>It is widely used. Tools like <code>indent</code> and <code>clang-format</code> support it directly or provide documentation.</li>
+<li>Its wide indentation force us to write modular code.</li>
+</ul>
+<p>Since we use Linux kernel coding style, variables, functions and types are all named in snake case (like <code>a_b_c</code>).
+Camel case (like <code>aBc</code>) or Pascal case (like <code>Abc</code>) is not used.</p>
+<h1>Iterator</h1>
+<p>The <code>OPF Programming</code> uses many iterators, the iterator itself is an application of <code>OPF Programming</code>,
+but we pick it out and describe it since it&#39;s widely used.</p>
+<p>In <code>OPF Programming</code>, we only need to implement 2 interfaces: <code>_iter_init</code> and <code>_iter_next</code>.</p>
+<p>When we use it, code should look like this:</p>
+<pre><code class="language-c">int blah(void)
+{
+	struct xxx_iter iter;
+	struct element *tmp;
+	size_t index;
+
+
+	/// call _init to initialize iterator, we can&#39;t ignore the returning value since _init may fail.
+
+	if (xxx_iter_init(&amp;iter))
+		return XXX_ITER_INIT_failed;
+
+
+	/// Call `_next` to get the next element from the iterator.
+	/// We can get both the element and the index through pointer arguments.
+
+	//while (!xxx_iter_next(&amp;iter, &amp;tmp, NULL))
+	while (!xxx_iter_next(&amp;iter, &amp;tmp, &amp;index)) {
+		if (do_something_on_element(tmp))
+			return XXX_ITER_ELE_ERROR;
+	}
+
+
+	return 0;
+}
+</code></pre>
+<h1>Suggestions</h1>
+<p>The <code>OPF Programming</code> style is like Boxing in the programming paradigm world.
+It contains only a few rules, but we can solve huge problem by combing those simple rules.</p>
+<p>Human have limited time and power, we need to use our resources on practice,
+not on searching or reading.</p>
+<p>There is a Chinses saying:</p>
+<blockquote>
+<p>“ <em>万招会，不如一招精</em> ”</p>
+</blockquote>
+<p>Which means: Practising 1 skill for 10000 times, is better than learning 10000 skills.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>
