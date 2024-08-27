@@ -1,0 +1,227 @@
+body {
+  overflow-y: scroll;
+  margin: 0;
+  font-size: 16px;
+}
+.main {
+  margin: 20px auto 80px;
+  width: 768px;
+  position: relative;
+}
+.main a {
+  color: #4080d0;
+  outline: none;
+}
+.footer {
+  float: left;
+  margin: 60px 0 80px;
+  border-top: 1px solid #aaa;
+  color: #aaa;
+  font-size: 12px;
+}
+.footer a {
+  text-decoration: underline;
+}
+.article-meta {
+  font-family: "Cascadia Mono", consolas;
+  font-size: 14px;
+  line-height: 1;
+  border-top: 1px solid #eee;
+  margin: 8px 0 50px;
+}
+.article-date,
+.article-tags {
+  display: inline-block;
+}
+.article-date {
+  padding: 0 20px;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  color: #999;
+  background-color: #eee;
+}
+.article-tags {
+  color: lightgray;
+}
+.tophead {
+  width: 768px;
+  margin: auto;
+}
+a.toptitle {
+  padding: 48px 10px 10px;
+  display: block;
+  border-bottom: 1px solid #ccc;
+  line-height: 1.2;
+  text-decoration: none;
+  height: 48px;
+  color: #999;
+  overflow: hidden;
+  text-align: left;
+}
+.language-holder {
+  padding: 0 10px;
+  display: block;
+  padding-bottom: 10px;
+  text-decoration: none;
+  font-family: 'TildaSans', Arial, sans-serif, "Microsoft YaHei", "Hiragino Sans GB", "WenQuanYi Micro Hei";
+  font-size: 16px;
+  font-weight: 800;
+  color: #999;
+}
+@media screen and (max-width: 788px) {
+  .tophead {
+    width: 100%;
+    margin: auto;
+  }
+}
+.opf-logo {
+  font-family: "Cascadia Mono", consolas;
+  font-size: 48px;
+  font-weight: 900;
+  display: flex;
+  position: relative;
+  color: #777;
+}
+.opf-logo span {
+  position: absolute;
+  display: inline-block;
+  top: 0;
+  transition-property: left, top, opacity, letter-spacing;
+  transition-duration: 1s;
+  transition-timing-function: cubic-bezier(0.7, 0.11, 0.36, 0.92);
+}
+.opf-logo-paren-open {
+  top: 5px;
+  border-radius: 24px 0 0 24px;
+  line-height: 24px;
+  height: 24px;
+  width: 16px;
+  border-top: 8px solid #777;
+  border-bottom: 8px solid #777;
+  border-left: 8px solid #777;
+}
+.opf-logo-paren-close {
+  top: 5px;
+  border-radius: 0 24px 24px 0;
+  line-height: 24px;
+  height: 24px;
+  width: 16px;
+  border-top: 8px solid #777;
+  border-bottom: 8px solid #777;
+  border-right: 8px solid #777;
+}
+#opf-logo-tail,
+#opf-logo-p-star,
+#opf-logo-p-arrow,
+#opf-logo-paren-open-2,
+#opf-logo-paren-close-2 {
+  color: #c3c3c3;
+  border-color: #c3c3c3;
+}
+#opf-logo-tail {
+  font-size: 28px;
+  height: 48px;
+  line-height: 62px;
+}
+.opf-logo-s-1 #opf-logo-paren-open-1 {
+  left: 0px;
+}
+.opf-logo-s-1 #opf-logo-p-star {
+  left: 48px;
+}
+.opf-logo-s-1 #opf-logo-p-1 {
+  left: 94px;
+  top: 5px;
+}
+.opf-logo-s-1 #opf-logo-paren-close-1 {
+  left: 144px;
+}
+.opf-logo-s-1 #opf-logo-p-arrow {
+  left: 182px;
+}
+.opf-logo-s-1 #opf-logo-f {
+  left: 250px;
+}
+.opf-logo-s-1 #opf-logo-paren-open-2 {
+  left: 288px;
+}
+.opf-logo-s-1 #opf-logo-p-2 {
+  left: 332px;
+  top: 5px;
+}
+.opf-logo-s-1 #opf-logo-paren-close-2 {
+  left: 380px;
+}
+.opf-logo-s-1 #opf-logo-tail {
+  left: 1024px;
+  letter-spacing: 256px;
+  opacity: 0;
+}
+.opf-logo-s-2 #opf-logo-paren-open-1 {
+  left: 0px;
+}
+.opf-logo-s-2 #opf-logo-paren-close-1 {
+  left: 18px;
+}
+.opf-logo-s-2 #opf-logo-p-star {
+  left: 48px;
+  opacity: 0;
+}
+.opf-logo-s-2 #opf-logo-p-1 {
+  left: 48px;
+  top: 5px;
+}
+.opf-logo-s-2 #opf-logo-p-arrow {
+  left: 48px;
+  opacity: 0;
+}
+.opf-logo-s-2 #opf-logo-f {
+  left: 84px;
+}
+.opf-logo-s-2 #opf-logo-paren-open-2 {
+  left: 84px;
+  opacity: 0;
+}
+.opf-logo-s-2 #opf-logo-p-2 {
+  left: 148px;
+  top: 5px;
+}
+.opf-logo-s-2 #opf-logo-paren-close-2 {
+  left: 84px;
+  opacity: 0;
+}
+.opf-logo-s-2 #opf-logo-tail {
+  left: 180px;
+}
+.articles {
+  margin: 20px 10px;
+  padding: 0;
+}
+.articles li {
+  margin: 40px 0;
+  list-style: none;
+}
+.article-title {
+  display: block;
+  font-family: 'TildaSans', Arial, sans-serif, "Microsoft YaHei", "Hiragino Sans GB", "WenQuanYi Micro Hei";
+  font-weight: bold;
+  font-size: 22px;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.article-title code {
+  font-family: "Cascadia Mono", consolas;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.article-title p {
+  margin: 0;
+}
+@media screen and (max-width: 788px) {
+  .main {
+    width: 100%;
+    margin: 20px auto 80px;
+  }
+}

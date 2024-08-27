@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - GCC `__attribute__` 扩展，多属性的写法</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>GCC <code>__attribute__</code> 扩展，多属性的写法</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-04-24T19:07:00+08:00</div>
+				<div class="article-tags">GCC</div>
+			</div>
+			<p>GCC中如果有多个 <code>__attribute__</code> 属性要设置，只需要用逗号分隔开，写在同一个 <code>__attribute__(())</code> 中即可。</p>
+<p>举例如下：</p>
+<p>这是 <code>a.c</code>:</p>
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int blah(void) __attribute__((weak, aligned(32)));
+
+int blah(void)
+{
+	return 2;
+}
+
+int main(void)
+{
+	printf(&quot;%d\n&quot;, blah());
+	return 0;
+}
+</code></pre>
+<p>这是 <code>b.c</code>:</p>
+<pre><code class="language-c">int blah(void)
+{
+	return 1;
+}
+</code></pre>
+<p>我们编译并dump一下:</p>
+<pre><code class="language-sh">cc -c a.c &amp;&amp; cc -c b.c &amp;&amp; cc b.o a.o &amp;&amp; objdump -M intel -S a.exe &gt; 1.lss
+</code></pre>
+<p>从 dump 出来的 <code>1.lss</code> 中可以看到如下内容：</p>
+<pre><code class="language-x86asm">00000001400013a0 &lt;blah&gt;:
+1400013a0: b8 01 00 00 00              	mov	eax, 0x1
+1400013a5: c3                          	ret
+1400013a6: cc                          	int3
+1400013a7: cc                          	int3
+1400013a8: cc                          	int3
+1400013a9: cc                          	int3
+1400013aa: cc                          	int3
+1400013ab: cc                          	int3
+1400013ac: cc                          	int3
+1400013ad: cc                          	int3
+1400013ae: cc                          	int3
+1400013af: cc                          	int3
+1400013b0: cc                          	int3
+1400013b1: cc                          	int3
+1400013b2: cc                          	int3
+1400013b3: cc                          	int3
+1400013b4: cc                          	int3
+1400013b5: cc                          	int3
+1400013b6: cc                          	int3
+1400013b7: cc                          	int3
+1400013b8: cc                          	int3
+1400013b9: cc                          	int3
+1400013ba: cc                          	int3
+1400013bb: cc                          	int3
+1400013bc: cc                          	int3
+1400013bd: cc                          	int3
+1400013be: cc                          	int3
+1400013bf: cc                          	int3
+
+00000001400013c0 &lt;.weak.blah.default.main&gt;:
+1400013c0: b8 02 00 00 00              	mov	eax, 0x2
+1400013c5: c3                          	ret
+</code></pre>
+<p>然后将 <code>a.c</code> 修改成下面这样：</p>
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+//int blah(void) __attribute__((weak, aligned(32)));
+int blah(void) __attribute__((weak));
+
+int blah(void)
+{
+	return 2;
+}
+
+int main(void)
+{
+	printf(&quot;%d\n&quot;, blah());
+	return 0;
+}
+</code></pre>
+<p>再次编译并dump：</p>
+<pre><code class="language-sh">cc -c a.c &amp;&amp; cc -c b.c &amp;&amp; cc b.o a.o &amp;&amp; objdump -M intel -S a.exe &gt; 2.lss
+</code></pre>
+<p>从 dump 出来的 <code>2.lss</code> 中可以看到如下内容：</p>
+<pre><code class="language-x86asm">00000001400013a0 &lt;blah&gt;:
+1400013a0: b8 01 00 00 00              	mov	eax, 0x1
+1400013a5: c3                          	ret
+1400013a6: cc                          	int3
+1400013a7: cc                          	int3
+1400013a8: cc                          	int3
+1400013a9: cc                          	int3
+1400013aa: cc                          	int3
+1400013ab: cc                          	int3
+1400013ac: cc                          	int3
+1400013ad: cc                          	int3
+1400013ae: cc                          	int3
+1400013af: cc                          	int3
+
+00000001400013b0 &lt;.weak.blah.default.main&gt;:
+1400013b0: b8 02 00 00 00              	mov	eax, 0x2
+1400013b5: c3                          	ret
+</code></pre>
+<p>对比可以看到，逗号隔开的 <code>weak</code> 和 <code>aligned(32)</code> 是同时生效的。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>
