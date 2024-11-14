@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - 如何用正则表达式，匹配C语言的多行注释？</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>如何用正则表达式，匹配C语言的多行注释？</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-06-28T23:51:00+08:00</div>
+				<div class="article-tags">C,Regular Expression</div>
+			</div>
+			<p>我们想要用正则表达式匹配<code>C语言</code>的注释，假设我们面对的是下面这样的<code>C语言</code>代码：</p>
+<pre><code class="language-c">/**a*/b/*c**/
+</code></pre>
+<p>你可能会不假思索使用<code>/\*.*\*/</code>这样的正则表达式。即尝试用<code>.*</code>去匹配注释内容。</p>
+<p>然而这样去匹配，我们得到的结果会是：</p>
+<pre><code class="language-c">/**a*/b/*c**/
+</code></pre>
+<p>而不是预期中的：</p>
+<pre><code class="language-c">/**a*/
+</code></pre>
+<p>究其原因，正则表达式骨子里是“贪婪”的，它总是会试图匹配更多。
+但是现代的正则引擎，往往给正则表达式扩展了更加高级强大的功能，很多引擎支持“非贪婪”的匹配策略。</p>
+<p>比如，<a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions/Quantifiers"><code>JavaScript</code>的正则表达式</a>，就提供了一些“非贪婪”的量词，如<code>*?</code>, <code>+?</code>, <code>{n,m}?</code>等等。</p>
+<p>使用“非贪婪”量词，匹配出注释倒是容易：</p>
+<pre><code class="language-javascript">/\/\*.*?\*\//.exec(&quot;/**a*/b/*c**/&quot;)[0];
+</code></pre>
+<p>它运行的结果就是预期中的：</p>
+<pre><code>&#39;/**a*/&#39;
+</code></pre>
+<p>除了“非贪婪”的量词，高级正则的捕获功能，还支持“取反”操作，即<code>(?!)</code>。使用这个功能，可以有如下解法：</p>
+<pre><code class="language-javascript">/\/\*([^*]|\*(?!\/))*\*\//.exec(&quot;/**a*/b/*c**/&quot;)[0];
+</code></pre>
+<p>它运行的结果也是预期中的：</p>
+<pre><code>&#39;/**a*/&#39;
+</code></pre>
+<p>但是这类方案的问题在于，很多重要的正则引擎，恰恰并不支持这些复杂的高级功能。</p>
+<p>比如<a href="https://github.com/westes/flex"><code>flex</code></a>和<a href="https://www.erlang.org/doc/apps/parsetools/leex.html"><code>leex</code></a>，只支持最基础的正则表达式写法。使用这些工具的时候，我们只能使用最基础的正则表达式。</p>
+<blockquote>
+<p>可以查阅<a href="https://westes.github.io/flex/manual/Patterns.html#Patterns"><code>flex的相关文档</code></a>和<a href="https://www.erlang.org/doc/apps/parsetools/leex.html#module-regular-expressions"><code>leex的相关文档</code></a>来验证是否有此限制。</p>
+</blockquote>
+<p>那么，我们如何解决这个问题呢？</p>
+<h2>高兼容性的方案</h2>
+<p>最终方案可以使用下面的“伪正则表达式”来表示：</p>
+<pre><code class="language-text">{START}({NOT_WORRYING}*{WORRYING}+{NOT_WORRYING_NOR_FINAL})*{NOT_WORRYING}*{WORRYING}+{FINAL}
+</code></pre>
+<p>使用此方案，上面的正则表达式可以写作：</p>
+<pre><code>/\*([^*]*\*+[^*/])*[^*]*\*+/
+</code></pre>
+<blockquote>
+<p>此方案的具体描述，可以在<a href="http://www.cs.man.ac.uk/~pjj/cs212/ex2_str_comm.html">这个网站</a>阅读。</p>
+</blockquote>
+<p>我们把方案和具体使用示例切开并对应起来：</p>
+<pre><code class="language-text">{START}							/\*
+({NOT_WORRYING}*{WORRYING}+{NOT_WORRYING_NOR_FINAL})*	([^*]*\*+[^*/])*
+{NOT_WORRYING}*						[^*]*
+{WORRYING}+{FINAL}					\*+/
+</code></pre>
+<p>切分之后，理解此方案就变得容易了许多。大家可以一行一行仔细对照理解。</p>
+<h2>复杂示例</h2>
+<p>让我们写一个<code>C语言</code>文件<code>a.c</code>，里面包含一些随机的注释：</p>
+<pre><code class="language-c">/*** this is c comment ** /
+ **/
+
+int blah(struct myobj **p)
+{
+	return (*p)-&gt;f(p);
+}
+
+/* /* /*
+ * other c comment
+ */
+</code></pre>
+<p>在<code>JavaScript</code>中处理这个文件：</p>
+<pre><code class="language-javascript">/// 文件内容作为字符串被读入到了变量`c`中。
+/\/\*([^*]*\*+[^*/])*[^*]*\*+\//s.exec(c)[0];
+</code></pre>
+<p>运行后返回的值：</p>
+<pre><code>&#39;/*** this is c comment ** /\n **/&#39;
+</code></pre>
+<p>可以看到，我们成功地匹配出了完整的注释。</p>
+<h2>在<code>sed</code>命令中使用示例</h2>
+<p>我们可以将上面的正则，配合<code>sed</code>命令使用。比如我们想将源文件中所有的注释，替换成一个空行，那我们只需要：</p>
+<pre><code class="language-sh">sed -z -E &quot;s#/\*([^*]*\*+[^*/])*[^*]*\*+/##g&quot; a.c
+</code></pre>
+<p>运行结果：</p>
+<pre><code class="language-c">
+
+int blah(struct myobj **p)
+{
+	return (*p)-&gt;f(p);
+}
+
+</code></pre>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>
