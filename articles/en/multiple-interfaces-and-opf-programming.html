@@ -1,0 +1,294 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - Multiple Interfaces And `OPF Programming`</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>Multiple Interfaces And <code>OPF Programming</code></p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-05-31T23:47:00+08:00</div>
+				<div class="article-tags">OPF Programming</div>
+			</div>
+			<h1>What does this &quot;interface&quot; mean?</h1>
+<p>We are talking about implementing something like the <code>interface</code> in
+<code>Go language</code>, or the <code>trait object</code> in <code>Rust language</code>.</p>
+<h1>Does OPF Programming support multiple interface?</h1>
+<p>The skill part of <a href="/articles/en/what-is-opf-programming.html"><code>OPF Programming</code></a>, <code>(*p)-&gt;f(p)</code>,
+do not support multiple interface.</p>
+<p>Because it depends on:</p>
+<blockquote>
+<p>interface pointer have to be the first field of the owner struct.</p>
+</blockquote>
+<p>But can we implement a multiple interface mechanism that is compatible with
+the <code>OPF</code> Programming?</p>
+<p>Yes, we can. And this article describes how we implement it.</p>
+<h1>Single interface (OPF Programming, for comparison)</h1>
+<p>Let&#39;s define 2 interface:</p>
+<ul>
+<li><code>bird_i</code> which contains <code>fly</code> method</li>
+<li><code>dog_i</code> which contains <code>run</code> and <code>bark</code> method</li>
+</ul>
+<pre><code class="language-c">typedef int (*bird_fly_fn_t)(void *self, int distance);
+typedef int (*dog_run_fn_t)(void *self, int distance);
+typedef int (*dog_bark_fn_t)(void *self, int count);
+</code></pre>
+<pre><code class="language-c">struct bird_i {
+	bird_fly_fn_t fly;
+};
+</code></pre>
+<pre><code class="language-c">struct dog_i {
+	dog_run_fn_t run;
+	dog_bark_fn_t bark;
+};
+</code></pre>
+<p>Let&#39;s see the <code>OPF Programming</code> implementation (single interface) first.</p>
+<p>We define a normal dog species (husky) to implement the <code>dog_i</code> interface:</p>
+<pre><code class="language-c">struct husky {
+	struct dog_i *interface;
+	const char *name;
+};
+</code></pre>
+<p>We define a global object <code>husky_interface</code> which got shared by all
+<code>struct husky</code> objects.</p>
+<pre><code class="language-c">struct dog_i husky_interface = {
+	.run = (dog_run_fn_t)husky_run,
+	.bark = (dog_bark_fn_t)husky_bark,
+};
+</code></pre>
+<p>The the implementation of interfaces:</p>
+<pre><code class="language-c">int husky_run(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is running, target distance: %d\n&quot;, self-&gt;name,
+			distance);
+	return 0;
+}
+
+int husky_bark(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is barking, target count: %d\n&quot;, self-&gt;name,
+			distance);
+	return 0;
+}
+</code></pre>
+<p>Now, let&#39;s define a normal bird species (crow) to implement the <code>bird_i</code>
+interface.</p>
+<pre><code class="language-c">struct crow {
+	struct bird_i *interface;
+	const char *name;
+};
+</code></pre>
+<p>We define a global object <code>crow_interface</code> which got shared by all
+<code>struct crow</code> objects.</p>
+<pre><code class="language-c">struct bird_i crow_interface = {
+	.fly = (bird_fly_fn_t)crow_fly,
+};
+</code></pre>
+<p>Then, the implementation of interfaces:</p>
+<pre><code class="language-c">int crow_fly(struct crow *self, int distance)
+{
+	my_printf(&quot;Crow %s is flying, target distance: %d\n&quot;, self-&gt;name,
+			distance);
+	return 0;
+}
+</code></pre>
+<p>Here is how we use it:</p>
+<pre><code class="language-c">struct husky hus;
+dog_run_simple((struct dog_i **)&amp;hus, 10);
+</code></pre>
+<pre><code class="language-c">struct crow black;
+bird_fly_simple((struct bird_i **)&amp;black, 1000);
+</code></pre>
+<p>The <code>dog_run_simple</code> and <code>bird_fly_simple</code> are just wrappers for <code>(*p)-&gt;f(p)</code>.</p>
+<pre><code class="language-c">int dog_run_simple(struct dog_i **dog, int distance)
+{
+	return (*dog)-&gt;run(dog, distance);
+}
+</code></pre>
+<pre><code class="language-c">int bird_fly_simple(struct bird_i **bird, int distance)
+{
+	return (*bird)-&gt;fly(bird, distance);
+}
+</code></pre>
+<h1>The Multiple-interface mechanism (which is compatible with <code>OPF</code>)</h1>
+<p>In short, the core part of this implementation is a singly linked list who
+chains all interface objects.  There is a <code>Interface Tag</code> inside every node of
+the list.  Some offsets are handled to make this mechanism compatible with
+<code>OPF</code> Programming.</p>
+<pre><code>                                        +--------+         +--------+
+                                        |     ---+--.      |     ---+--.
+                                        +--------+  |      +--------+  |
+  VARIABLE           OBJECT             |  DOG   |  |      |  BIRD  |  |
+  +--------+  .---&gt;  +--------+  .---&gt;  +--------+  `---&gt;  +--------+  `---&gt;
+  |     ---+--&#39;      |     ---+--&#39;      |  run   |         |  fly   |
+  +--------+         +--------+         +--------+         +--------+
+                     |        |         |  bark  |
+                     |        |         +--------+
+                     |        |
+                     |        |
+                     +--------+
+</code></pre>
+<p>Now let&#39;s implement it. First, we define some structs and macros:</p>
+<pre><code class="language-c">struct complex_i_header {
+	void *next;
+	void *tag;
+};
+
+#define H_ADDR_TO_I_ADDR(h) \
+	(void *)((uintptr_t)h + sizeof(struct complex_i_header))
+
+#define I_ADDR_TO_H_ADDR(i) \
+	(struct complex_i_header *)((uintptr_t)i -
+					sizeof(struct complex_i_header))
+
+#define COMPLEX_INTERFACE(TYPE)            \
+	struct {                           \
+		struct complex_i_header h; \
+		TYPE i;                    \
+	}
+</code></pre>
+<p>Then we define a function to traverse the list and adjust the offsets.</p>
+<pre><code class="language-c">static int find_i_from_chain(void *interface_chain, void *tag, void **result)
+{
+	struct complex_i_header *h;
+
+	h = I_ADDR_TO_H_ADDR(interface_chain);
+
+	if (h-&gt;tag == tag) {
+		*result = interface_chain;
+		return 0;
+	}
+
+	if (h-&gt;next == NULL)
+		return 1;
+
+	return find_i_from_chain(h-&gt;next, tag, result);
+}
+</code></pre>
+<p>Now, let&#39;s define a special dog species (angle dog), who implements <code>bird_i</code>
+and <code>dog_i</code> in the same time.</p>
+<pre><code class="language-c">struct angel_dog {
+	void *interface;
+	int wing_span;
+	const char *name;
+};
+</code></pre>
+<p>With the helper macro, we define 2 global interface object
+<code>angel_dog_interface_1</code> and <code>angel_dog_interface_2</code>, which got shared by all
+<code>struct angel_dog</code> objects.</p>
+<pre><code class="language-c">COMPLEX_INTERFACE(struct bird_i)
+angel_dog_interface_1 = {
+	.h.next = NULL,
+	.h.tag = &amp;bird_i_anchor,
+	.i.fly = (bird_fly_fn_t)angel_dog_fly,
+};
+
+COMPLEX_INTERFACE(struct dog_i)
+angel_dog_interface_2 = {
+	.h.next = H_ADDR_TO_I_ADDR(&amp;angel_dog_interface_1),
+	.h.tag = &amp;dog_i_anchor,
+	.i.run = (dog_run_fn_t)angel_dog_run,
+	.i.bark = (dog_bark_fn_t)angel_dog_bark,
+};
+</code></pre>
+<p>Now here is the implementation of interfaces:</p>
+<pre><code class="language-c">int angel_dog_fly(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is flying, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_run(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is running, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_bark(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is barking, target count: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>Let&#39;s define 2 demo functions to use the multiple-interface objects:</p>
+<pre><code class="language-c">int bird_fly_complex(void *bird, int distance)
+{
+	struct bird_i *i;
+	if (find_i_from_chain(*(void **)bird, &amp;bird_i_anchor, (void **)&amp;i))
+		return 1;
+
+	return i-&gt;fly(bird, distance);
+}
+
+int dog_run_complex(void *dog, int distance)
+{
+	struct dog_i *i;
+	if (find_i_from_chain(*(void **)dog, &amp;dog_i_anchor, (void **)&amp;i))
+		return 1;
+
+	return i-&gt;run(dog, distance);
+}
+</code></pre>
+<p>Usage example:</p>
+<pre><code class="language-c">struct angel_dog air;
+
+//...
+
+dog_run_complex(&amp;air, 100);
+bird_fly_complex(&amp;air, 2000);
+</code></pre>
+<p>The first interface in the chain is <code>struct dog_i</code>, so you can use
+OPF Programming on it (the compatibility):</p>
+<pre><code class="language-c">dog_run_simple((struct dog_i **)&amp;air, 10);
+</code></pre>
+<h1>But ...</h1>
+<p>It&#39;s not suggested to use this skill in serious programs.
+This will be explained in the future.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

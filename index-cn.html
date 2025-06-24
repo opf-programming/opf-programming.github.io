@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/index.css">
+	<title>OPF Programming</title>
+</head>
+
+<body>
+	<div class="tophead">
+		<a class="toptitle" href="/index-cn.html">
+			<div id="opf-logo" class="opf-logo opf-logo-s-2">
+	<span id="opf-logo-paren-open-1" class="opf-logo-paren-open"></span>
+	<span id="opf-logo-paren-close-1" class="opf-logo-paren-close"></span>
+	<span id="opf-logo-p-star">*</span>
+	<span id="opf-logo-p-1">P</span>
+	<span id="opf-logo-p-arrow">-&gt;</span>
+	<span id="opf-logo-f">F</span>
+	<span id="opf-logo-paren-open-2" class="opf-logo-paren-open"></span>
+	<span id="opf-logo-p-2">P</span>
+	<span id="opf-logo-paren-close-2" class="opf-logo-paren-close"></span>
+	<span id="opf-logo-tail">rogramming</span>
+</div>
+
+<script>
+window.addEventListener('load', function () {
+	var logo = document.querySelector("#opf-logo");
+	var current_class = "opf-logo-s-2";
+	var next_class = "opf-logo-s-1";
+
+	function swap_class() {
+		logo.classList.replace(current_class, next_class);
+		var tmp = current_class;
+		current_class = next_class;
+		next_class = tmp;
+	}
+
+	setInterval(swap_class, 5000);
+});
+</script>
+
+		</a>
+		<div class="language-holder">
+	<a href=/index.html>English</a>
+	<a href=/index-cn.html>中文</a>
+</div>
+
+	</div>
+	<div class="main">
+		<ul class="articles">
+			
+			<li>
+				<a class="article-title" href="/articles/cn/relative-jump-offsets-in-different-machines.html"><p>相对跳转指令，在不同CPU架构上的区别</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-11-14T10:52:00+08:00</div>
+					<div class="article-tags">ARM,Assembly Language,MCS-51,RISC-V</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/regular-expression-for-c-comment.html"><p>如何用正则表达式，匹配C语言的多行注释？</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-06-28T23:51:00+08:00</div>
+					<div class="article-tags">C,Regular Expression</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/multiple-interfaces-in-another-way.html"><p>C语言实现“多接口”的另一种方式</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-06-21T14:00:00+08:00</div>
+					<div class="article-tags">C,OPF Programming</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/cplusplus-virtual-function-machine-level.html"><p>C++的虚函数，在机器层面的实现方式</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-06-20T15:22:00+08:00</div>
+					<div class="article-tags">C,C++,OOP,OPF Programming</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/multiple-interfaces-and-opf-programming.html"><p><code>OPF编程</code>如何支持对象实现“多接口”</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-05-31T23:47:00+08:00</div>
+					<div class="article-tags">C,OPF Programming</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/what-is-opf-programming.html"><p>什么是<code>OPF</code>编程?</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-05-28T15:32:00+08:00</div>
+					<div class="article-tags">OPF Programming</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/gcc-attribute-multi-fields.html"><p>GCC <code>__attribute__</code> 扩展，多属性的写法</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-04-24T19:07:00+08:00</div>
+					<div class="article-tags">GCC</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/risc-v-register-saving-rules-in-different-options.html"><p>RISC-V在不同中断选项下，寄存器的保存规则</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-03-24T23:49:00+08:00</div>
+					<div class="article-tags">C,GCC,ISR,MCU,RISC-V,WCH</div>
+				</div>
+			</li>
+			
+			<li>
+				<a class="article-title" href="/articles/cn/the-cost-of-recursion-is-not-always-expensive.html"><p>“递归”的开销，并不总是很大</p>
+</a>
+				<div class="article-meta">
+					<div class="article-date">2024-03-15T23:23:00+08:00</div>
+					<div class="article-tags">Algorithm,C,Recursion</div>
+				</div>
+			</li>
+			
+		</ul>
+	</div>
+</body>
+</html>

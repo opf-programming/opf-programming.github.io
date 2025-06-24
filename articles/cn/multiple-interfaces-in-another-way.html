@@ -1,0 +1,267 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - C语言实现“多接口”的另一种方式</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>C语言实现“多接口”的另一种方式</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-06-21T14:00:00+08:00</div>
+				<div class="article-tags">C,OPF Programming</div>
+			</div>
+			<p>前面有<a href="/articles/cn/multiple-interfaces-and-opf-programming.html">一篇文章</a>介绍了如何使用兼容<a href="/articles/cn/what-is-opf-programming.html"><code>OPF编程</code></a>的方式去支持“多接口”。
+作为对比，本文提供另一种实现“多接口”的方式，来帮助大家从另一个角度理解“多接口”实现的要点和面对的困难。</p>
+<h1>代码示例</h1>
+<p>为了方便参照对比，接口定义部分，同前面那篇文章一样：</p>
+<pre><code class="language-c">typedef int (*bird_fly_fn_t)(void *self, int distance);
+typedef int (*dog_run_fn_t)(void *self, int distance);
+typedef int (*dog_bark_fn_t)(void *self, int count);
+
+struct bird_i {
+	bird_fly_fn_t fly;
+};
+
+struct dog_i {
+	dog_run_fn_t run;
+	dog_bark_fn_t bark;
+};
+</code></pre>
+<p>接下来是接口的实现者，同前面那篇文章类似：</p>
+<pre><code class="language-c">struct crow {
+	const char *name;
+	struct bird_i *bird_interface;
+};
+
+int crow_fly(struct crow *self, int distance);
+
+struct bird_i crow_interface = {
+	.fly = (bird_fly_fn_t)crow_fly,
+};
+
+int crow_init(struct crow *self, const char *name)
+{
+	self-&gt;bird_interface = &amp;crow_interface;
+	self-&gt;name = name;
+	return 0;
+}
+
+int crow_fly(struct crow *self, int distance)
+{
+	my_printf(&quot;Crow %s is flying, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>注意看，这里特地把接口字段<code>bird_interface</code>放到了“非首字段”，以和<code>OPF编程</code>方案形成更明显的视觉区分。</p>
+<p>同样的方式，我们实现一下另一个接口：</p>
+<pre><code class="language-c">struct husky {
+	const char *name;
+	struct dog_i *dog_interface;
+};
+
+int husky_run(struct husky *self, int distance);
+int husky_bark(struct husky *self, int distance);
+
+struct dog_i husky_interface = {
+	.run = (dog_run_fn_t)husky_run,
+	.bark = (dog_bark_fn_t)husky_bark,
+};
+
+int husky_init(struct husky *self, const char *name)
+{
+	self-&gt;dog_interface = &amp;husky_interface;
+	self-&gt;name = name;
+	return 0;
+}
+
+int husky_run(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is running, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int husky_bark(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is barking, target count: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>然后是一个实现了多个接口的对象：</p>
+<pre><code class="language-c">struct angel_dog {
+	const char *name;
+	int wing_span;
+	struct bird_i *bird_interface;
+	struct dog_i *dog_interface;
+};
+
+int angel_dog_fly(struct angel_dog *self, int distance);
+int angel_dog_run(struct angel_dog *self, int distance);
+int angel_dog_bark(struct angel_dog *self, int distance);
+
+struct bird_i angel_dog_bird_interface = {
+	.fly = (bird_fly_fn_t)angel_dog_fly,
+};
+
+struct dog_i angel_dog_dog_interface = {
+	.run = (dog_run_fn_t)angel_dog_run,
+	.bark = (dog_bark_fn_t)angel_dog_bark,
+};
+
+int angel_dog_init(struct angel_dog *self, const char *name, int wing_span)
+{
+	self-&gt;dog_interface = &amp;angel_dog_dog_interface;
+	self-&gt;bird_interface = &amp;angel_dog_bird_interface;
+	self-&gt;wing_span = wing_span;
+	self-&gt;name = name;
+	return 0;
+}
+
+int angel_dog_fly(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is flying, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_run(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is running, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_bark(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is barking, target count: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>上面的代码，除了接口指针所在的字段位置不同，总体上还是跟<code>OPF编程</code>非常类似的。</p>
+<p>这是必然的，通过<code>虚函数表</code>或类似结构来进行接口编程时，“实现者”这部分必定是相似的。
+区别主要体用在“使用者”这一边。</p>
+<p>接下来我们编写“使用侧”的代码。首先必须定义下面这个宏：</p>
+<pre><code class="language-c">#define CONTAINER_OF(P_OBJ, TYPE, FIELD) \
+	((TYPE *)((char *)P_OBJ - (uintptr_t)(&amp;((TYPE *)0)-&gt;FIELD)))
+</code></pre>
+<p>这个宏，是用来通过字段地址，反推出字段所属的结构体对象地址。
+这个宏在<code>Linux</code>中经常使用，<code>Linux</code>中的链表等数据结构，都是基于<code>CONTAINER_OF</code>的原理实现的。</p>
+<blockquote>
+<p><code>offsetof</code>这个关键字可以用来实现<code>CONTAINER_OF</code>宏，但是本文还是使用更传统，编译器支持更广的计算方案。</p>
+</blockquote>
+<p>接着我们准备好用来测试的数据：</p>
+<pre><code class="language-c">struct crow black;
+struct husky hus;
+struct angel_dog air;
+
+crow_init(&amp;black, &quot;Black&quot;);
+husky_init(&amp;hus, &quot;Hus&quot;);
+angel_dog_init(&amp;air, &quot;Air&quot;, 8);
+</code></pre>
+<p>直接使用的话，代码按上去比较复杂：</p>
+<pre><code class="language-c">hus.dog_interface-&gt;bark(CONTAINER_OF(&amp;hus.dog_interface, struct husky, dog_interface), 1);
+
+black.bird_interface-&gt;fly(CONTAINER_OF(&amp;black.bird_interface, struct crow, bird_interface), 2);
+
+air.dog_interface-&gt;bark(CONTAINER_OF(&amp;air.dog_interface, struct angel_dog, dog_interface), 3);
+
+air.bird_interface-&gt;fly(CONTAINER_OF(&amp;air.bird_interface, struct angel_dog, bird_interface), 4);
+</code></pre>
+<p>上面的调用语句太长，我们提取关键信息简化一下得到：</p>
+<pre><code class="language-c">obj.i-&gt;f(&amp;obj.i - OFFSET_OF_obj_i, 1);
+</code></pre>
+<p>上面的形式还不够清晰，让我们将它等价变换成另一种形式：</p>
+<pre><code class="language-c">(*p)-&gt;f(p - OFFSET_OF_obj_i, 1);
+</code></pre>
+<p>省略掉业务参数，只保留核心骨架，这个公式等同于：</p>
+<pre><code class="language-c">(*p)-&gt;f(p - N);
+</code></pre>
+<blockquote>
+<p>变成这种形式，大家就能发现这种方案，跟<code>OPF编程</code>的<code>(*p)-&gt;f(p)</code>的区别了。</p>
+</blockquote>
+<blockquote>
+<p>同时，这个公式也出现在前面一篇文章《<a href="/articles/cn/cplusplus-virtual-function-machine-level.html">C++的虚函数，在机器层面的实现方式</a>》中，
+大家可以对比思考，融会贯通。</p>
+</blockquote>
+<p>对于不同类型的<code>obj</code>，这个<code>OFFSET_OF_obj_i</code>的值不同，而<code>OFFSET_OF_obj_i</code>这个值只在编译期才有，运行期没有，
+所以这种形式的调用，只好通过宏来实现简化和统一。</p>
+<h2>使用方式简化</h2>
+<p>通过引入这样一个宏：</p>
+<pre><code class="language-c">#define INTERFACE_CALL(P_OBJ, I_FIELD, METHOD, ...) \
+	(P_OBJ)-&gt;I_FIELD-&gt;METHOD(CONTAINER_OF(&amp;(P_OBJ)-&gt;I_FIELD, typeof(*(P_OBJ)), I_FIELD), __VA_ARGS__)
+</code></pre>
+<p>调用形式可以在视觉上得到简化：</p>
+<pre><code class="language-c">INTERFACE_CALL(&amp;hus, dog_interface, bark, 5);
+
+INTERFACE_CALL(&amp;black, bird_interface, fly, 6);
+
+INTERFACE_CALL(&amp;air, dog_interface, bark, 6);
+
+INTERFACE_CALL(&amp;air, bird_interface, fly, 7);
+</code></pre>
+<h2>使用方式再度简化</h2>
+<p>如果我们对使用再加一个约束：要求字段必须用特定的名字。（这个限制是否过于苛刻另谈）
+比如<code>bird_i</code>的接口字段必须叫<code>bird_interface</code>，<code>dog_i</code>的接口字段必须叫<code>dog_interface</code>，</p>
+<p>那么我们就可以对外提供更简洁的接口了：</p>
+<pre><code class="language-c">#define BIRD_FLY(P_OBJ, ...) \
+	INTERFACE_CALL(P_OBJ, bird_interface, fly, __VA_ARGS__)
+
+#define DOG_BARK(P_OBJ, ...) \
+	INTERFACE_CALL(P_OBJ, dog_interface, bark, __VA_ARGS__)
+</code></pre>
+<p>使用的时候，用户只需要这样调用接口：</p>
+<pre><code class="language-c">DOG_BARK(&amp;hus, 8);
+
+BIRD_FLY(&amp;black, 9);
+
+DOG_BARK(&amp;air, 10);
+
+BIRD_FLY(&amp;air, 11);
+</code></pre>
+<h1>总结</h1>
+<p>此方案实现的“多接口”对比前面那篇文章的链表方案，优点在于：运行性能更高，实现原理也相对更简单。</p>
+<p>但缺点也很明显：没有实现真正的动态化。调用者需要向实现者提供很多对象之外的额外信息，比如对象类型，接口字段名。</p>
+<p>这个缺点无法有效避免，相关信息要么通过参数传进去，要么通过“约定”对实现者的代码做限制。
+在C语言里，我们可以通过宏粗略地掩盖一下。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

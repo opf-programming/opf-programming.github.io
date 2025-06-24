@@ -1,0 +1,387 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - C++的虚函数，在机器层面的实现方式</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>C++的虚函数，在机器层面的实现方式</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-06-20T15:22:00+08:00</div>
+				<div class="article-tags">C,C++,OOP,OPF Programming</div>
+			</div>
+			<p><a href="/articles/cn/what-is-opf-programming.html"><code>OPF编程</code></a>的核心技巧<code>(*p)-&gt;f(p)</code>，其原理源自于<code>C++</code>的虚函数。</p>
+<p><code>OPF编程</code>在继承虚函数原理的同时，去掉了外部语法的迷雾，只保留了虚函数的骨骼，且放弃“多虚表”的特性，
+在实用性和简洁性上达到了一个美妙的平衡。</p>
+<p>在推广<code>OPF编程</code>过程中，发现很多<code>C++</code>用户，对<code>C++</code>虚表的实现方式不太了解，经常会被外部语法蒙蔽，看不到它和<code>OPF</code>的一致性。</p>
+<p>所以决定写下这篇文章，专门阐述下，<code>C++</code>的虚表是什么原理。希望能够从这个角度，增进大家对<code>OPF编程</code>的理解。</p>
+<h1>实例分析</h1>
+<p>为了把虚函数的特性分析明白，本示例特意使用了多重继承，类型<code>C</code>同时继承了来自<code>A</code>和<code>B</code>的虚函数。此时，类型<code>C</code>其实有两个虚函数表。</p>
+<pre><code class="language-c++">class A {
+public:
+	virtual int af1(int v);
+	virtual int af2(int v);
+};
+
+class B {
+public:
+	virtual int bf1(int v);
+	virtual int bf2(int v);
+	virtual int bf3(int v);
+};
+
+class C : public A, public B {
+private:
+	int i;
+	int j;
+public:
+	int af1(int v) override;
+	int bf1(int v) override;
+};
+</code></pre>
+<p>编译器生成的代码（文末会提供完整C程序和汇编代码）中，可以看到虚表的部分是这样的：</p>
+<pre><code class="language-x86asm">vtable for C:
+        .quad   0					;;虚表1
+        .quad   typeinfo for C
+        .quad   C::af1(int)				;;虚表1入口
+        .quad   A::af2(int)
+        .quad   C::bf1(int)
+
+        .quad   -8					;;虚表2
+        .quad   typeinfo for C
+        .quad   non-virtual thunk to C::bf1(int)	;;虚表2入口
+        .quad   B::bf2(int)
+        .quad   B::bf3(int)
+</code></pre>
+<p>首先可以看到，虚表的起始部分，并不是虚表的入口（也就是虚表指针指向的地方）。
+在虚表入口上方，还有两个字段，一个是虚表的偏移量，一个是类型信息。</p>
+<p>这个类型信息，就是<code>C++</code>支持<a href="https://en.wikipedia.org/wiki/Run-time_type_information"><code>RTTI</code>(Run-time type information)</a>的关键。
+这个信息挂载在虚表上，所以<code>RTTI</code>只能在有虚函数的类上使用。</p>
+<p>通过类型<code>C</code>的构造函数，我们能一窥这两个虚表的使用方式：</p>
+<pre><code class="language-x86asm">	...
+        call    A::A() [base object constructor]
+	...
+        call    B::B() [base object constructor]
+        mov     edx, OFFSET FLAT:vtable for C+16	;;获取第1个虚表地址（虚表1入口）
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax], rdx			;;将第1个虚表地址，写入“对象地址”对应的单元
+        mov     edx, OFFSET FLAT:vtable for C+56	;;获取第2个虚表地址（虚表2入口）
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax+8], rdx			;;将第2个虚表地址，写入“对象地址+8”对应的单元
+        nop
+        leave
+        ret
+</code></pre>
+<p>接下来，我们通过两个例子，来彻底讲清楚虚函数的调用方式。</p>
+<p>第1个例子，通过<code>A</code>类型的指针来访问<code>C</code>对象：</p>
+<pre><code class="language-c++">	A *c1 = new C();
+	int tmp = c1-&gt;af1(11);
+</code></pre>
+<pre><code class="language-x86asm">        mov     edi, 24					;;给new的参数（需要申请的内存大小）
+        call    operator new(unsigned long)		;;分配内存
+        mov     rbx, rax
+        mov     QWORD PTR [rbx], 0			;;初始化内存为0
+        mov     QWORD PTR [rbx+8], 0
+        mov     DWORD PTR [rbx+16], 0
+        mov     DWORD PTR [rbx+20], 0
+        mov     rdi, rbx				;;设置C构造函数的参数
+        call    C::C() [complete object constructor]	;;调用构造函数
+        mov     QWORD PTR [rbp-24], rbx
+        mov     rax, QWORD PTR [rbp-24]			;;载入c1地址（即第一个虚表指针的地址）到rax寄存器
+        mov     rax, QWORD PTR [rax]			;;对第1个虚表指针2次间接寻址获取目标虚函数
+        mov     rdx, QWORD PTR [rax]
+        mov     rax, QWORD PTR [rbp-24]
+        mov     esi, 11					;;调用虚函数前，设置其第2个参数11
+        mov     rdi, rax				;;调用虚函数前，设置其第1个参数c1
+        call    rdx					;;调用虚函数前
+</code></pre>
+<p>通过上面的例子，可以看到调用虚函数，代码上看是：</p>
+<pre><code class="language-c++">c1-&gt;af1(11);
+</code></pre>
+<p>实际上，从汇编代码分析就能知道，它其实是：</p>
+<pre><code class="language-c++">(*c1)-&gt;af1(c1, 11);
+</code></pre>
+<p>忽略掉业务参数，只保留核心部分，其实它就是：</p>
+<pre><code class="language-c++">(*p)-&gt;f(p);
+</code></pre>
+<p>这就是文章开头所说的：</p>
+<blockquote>
+<p><code>(*p)-&gt;f(p)</code>，其原理源自于<code>C++</code>的虚函数。</p>
+</blockquote>
+<h2><code>C++</code>的多个虚函数表</h2>
+<p>然而，<code>C++</code>的虚表，并没有到此为止，它的复杂性，在下面多重继承（多虚表）的情况下，马上就会暴露出来了。</p>
+<p>第2个例子，通过<code>B</code>类型的指针来访问<code>C</code>对象：</p>
+<pre><code class="language-c++">	B *c2 = new C();
+	int tmp = c2-&gt;bf1(22);
+</code></pre>
+<pre><code class="language-x86asm">        mov     edi, 24					;;给new的参数（需要申请的内存大小）
+        call    operator new(unsigned long)		;;分配内存
+        mov     rbx, rax
+        mov     QWORD PTR [rbx], 0			;;初始化内存为0
+        mov     QWORD PTR [rbx+8], 0
+        mov     DWORD PTR [rbx+16], 0
+        mov     DWORD PTR [rbx+20], 0
+        mov     rdi, rbx				;;设置C构造函数的参数
+        call    C::C() [complete object constructor]	;;调用构造函数
+        test    rbx, rbx
+        je      .L9
+        lea     rax, [rbx+8]				;;调整rax寄存器中的地址值！让其指向对象的第2个虚表指针
+        jmp     .L10
+.L9:
+        mov     eax, 0
+.L10:
+        mov     QWORD PTR [rbp-32], rax
+        mov     rax, QWORD PTR [rbp-32]			;;对第2个虚表指针2次间接寻址获取目标虚函数
+        mov     rax, QWORD PTR [rax]
+        mov     rdx, QWORD PTR [rax]
+        mov     rax, QWORD PTR [rbp-32]
+        mov     esi, 22
+        mov     rdi, rax
+        call    rdx
+</code></pre>
+<p>细心的读者可能发现了，第二个虚函数调用，它的对象地址是“错”的！本应该是<code>对象地址</code>的地方，却是<code>对象地址 + 8</code>。
+虚函数的实现部分，是必须要传入对象地址的，因为虚函数本身并不知道自己会被放到哪个地方，offset是多少。</p>
+<p>那么这个问题是怎么解决的呢？</p>
+<p>回头看上面虚表的结构，能发现第2个虚表里面，有一个虚函数名字很奇怪，跟其他虚函数可以说是格格不如，
+它叫<code>non-virtual thunk to C::bf1(int)</code>，这个函数的内容如下：</p>
+<pre><code class="language-x86asm">non-virtual thunk to C::bf1(int):
+        sub     rdi, 8
+        jmp     .LTHUNK0
+</code></pre>
+<p>它做的事情很简单，就是把第一个参数（此编译器的传参规则，第一个参数放在<code>rdi</code>里）减8，
+由于前面虚函数调用的时候，传入的对象地址是虚函数表2的地址，它减8即调整回真实对象的地址。
+经过这个调整之后，它才会去调用真正的虚函数<code>C::bf1</code>。</p>
+<p>进一步思考下，把这个减法的逻辑，融入到前面的公式，可以得到：</p>
+<pre><code class="language-c++">(*p)-&gt;f(p - N);
+</code></pre>
+<p>这个公式还出现在了后面的一篇文章《<a href="/articles/cn/multiple-interfaces-in-another-way.html">C语言实现“多接口”的另一种方式</a>》中，大家可以对比理解，融会贯通。</p>
+<h1>完整示例源码</h1>
+<pre><code class="language-c++">class A {
+public:
+	virtual int af1(int v);
+	virtual int af2(int v);
+};
+
+class B {
+public:
+	virtual int bf1(int v);
+	virtual int bf2(int v);
+	virtual int bf3(int v);
+};
+
+class C : public A, public B {
+private:
+	int i;
+	int j;
+public:
+	int af1(int v) override;
+	int bf1(int v) override;
+};
+
+int C::af1(int v)
+{
+	return i + v;
+}
+
+int C::bf1(int v)
+{
+	return i + v;
+}
+
+int f(void)
+{
+	int tmp;
+	A *c1 = new C();
+	tmp = c1-&gt;af1(11);
+	B *c2 = new C();
+	tmp = c2-&gt;bf1(22);
+	return 0;
+}
+</code></pre>
+<p><code>x86-64 gcc 14.1</code> 的生成的汇编代码：</p>
+<pre><code class="language-x86asm">C::af1(int):
+        push    rbp
+        mov     rbp, rsp
+        mov     QWORD PTR [rbp-8], rdi
+        mov     DWORD PTR [rbp-12], esi
+        mov     rax, QWORD PTR [rbp-8]
+        mov     edx, DWORD PTR [rax+16]
+        mov     eax, DWORD PTR [rbp-12]
+        add     eax, edx
+        pop     rbp
+        ret
+C::bf1(int):
+        push    rbp
+        mov     rbp, rsp
+        mov     QWORD PTR [rbp-8], rdi
+        mov     DWORD PTR [rbp-12], esi
+        mov     rax, QWORD PTR [rbp-8]
+        mov     edx, DWORD PTR [rax+16]
+        mov     eax, DWORD PTR [rbp-12]
+        add     eax, edx
+        pop     rbp
+        ret
+non-virtual thunk to C::bf1(int):
+        sub     rdi, 8
+        jmp     .LTHUNK0
+A::A() [base object constructor]:
+        push    rbp
+        mov     rbp, rsp
+        mov     QWORD PTR [rbp-8], rdi
+        mov     edx, OFFSET FLAT:vtable for A+16
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax], rdx
+        nop
+        pop     rbp
+        ret
+B::B() [base object constructor]:
+        push    rbp
+        mov     rbp, rsp
+        mov     QWORD PTR [rbp-8], rdi
+        mov     edx, OFFSET FLAT:vtable for B+16
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax], rdx
+        nop
+        pop     rbp
+        ret
+C::C() [base object constructor]:
+        push    rbp
+        mov     rbp, rsp
+        sub     rsp, 16
+        mov     QWORD PTR [rbp-8], rdi
+        mov     rax, QWORD PTR [rbp-8]
+        mov     rdi, rax
+        call    A::A() [base object constructor]
+        mov     rax, QWORD PTR [rbp-8]
+        add     rax, 8
+        mov     rdi, rax
+        call    B::B() [base object constructor]
+        mov     edx, OFFSET FLAT:vtable for C+16
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax], rdx
+        mov     edx, OFFSET FLAT:vtable for C+56
+        mov     rax, QWORD PTR [rbp-8]
+        mov     QWORD PTR [rax+8], rdx
+        nop
+        leave
+        ret
+f():
+        push    rbp
+        mov     rbp, rsp
+        push    rbx
+        sub     rsp, 40
+        mov     edi, 24
+        call    operator new(unsigned long)
+        mov     rbx, rax
+        mov     QWORD PTR [rbx], 0
+        mov     QWORD PTR [rbx+8], 0
+        mov     DWORD PTR [rbx+16], 0
+        mov     DWORD PTR [rbx+20], 0
+        mov     rdi, rbx
+        call    C::C() [complete object constructor]
+        mov     QWORD PTR [rbp-24], rbx
+        mov     rax, QWORD PTR [rbp-24]
+        mov     rax, QWORD PTR [rax]
+        mov     rdx, QWORD PTR [rax]
+        mov     rax, QWORD PTR [rbp-24]
+        mov     esi, 11
+        mov     rdi, rax
+        call    rdx
+        mov     DWORD PTR [rbp-36], eax
+        mov     edi, 24
+        call    operator new(unsigned long)
+        mov     rbx, rax
+        mov     QWORD PTR [rbx], 0
+        mov     QWORD PTR [rbx+8], 0
+        mov     DWORD PTR [rbx+16], 0
+        mov     DWORD PTR [rbx+20], 0
+        mov     rdi, rbx
+        call    C::C() [complete object constructor]
+        test    rbx, rbx
+        je      .L9
+        lea     rax, [rbx+8]
+        jmp     .L10
+.L9:
+        mov     eax, 0
+.L10:
+        mov     QWORD PTR [rbp-32], rax
+        mov     rax, QWORD PTR [rbp-32]
+        mov     rax, QWORD PTR [rax]
+        mov     rdx, QWORD PTR [rax]
+        mov     rax, QWORD PTR [rbp-32]
+        mov     esi, 22
+        mov     rdi, rax
+        call    rdx
+        mov     DWORD PTR [rbp-36], eax
+        mov     eax, 0
+        mov     rbx, QWORD PTR [rbp-8]
+        leave
+        ret
+vtable for C:
+        .quad   0
+        .quad   typeinfo for C
+        .quad   C::af1(int)
+        .quad   A::af2(int)
+        .quad   C::bf1(int)
+        .quad   -8
+        .quad   typeinfo for C
+        .quad   non-virtual thunk to C::bf1(int)
+        .quad   B::bf2(int)
+        .quad   B::bf3(int)
+typeinfo for C:
+        .quad   vtable for __cxxabiv1::__vmi_class_type_info+16
+        .quad   typeinfo name for C
+        .long   0
+        .long   2
+        .quad   typeinfo for A
+        .quad   2
+        .quad   typeinfo for B
+        .quad   2050
+typeinfo name for C:
+        .string &quot;1C&quot;
+</code></pre>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

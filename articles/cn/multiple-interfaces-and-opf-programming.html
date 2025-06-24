@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - `OPF编程`如何支持对象实现“多接口”</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p><code>OPF编程</code>如何支持对象实现“多接口”</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-05-31T23:47:00+08:00</div>
+				<div class="article-tags">C,OPF Programming</div>
+			</div>
+			<h1>何为“接口”？</h1>
+<p>本文所述的“接口”，是指实现类似<code>Go</code>语言里面的<code>interface</code>，或者<code>Rust</code>语言里的<code>trait object</code>这类动态派发的技术。</p>
+<h1>“OPF编程”支持多个接口吗？</h1>
+<p><a href="/articles/cn/what-is-opf-programming.html"><code>OPF编程</code></a>的“<em>术</em>”部分，即<code>(*p)-&gt;f(p)</code>，不支持多个接口。因为这个技术依赖于：</p>
+<blockquote>
+<p>接口结构体指针，必须是接口实现者的第一个字段。</p>
+</blockquote>
+<p>换言之，OPF编程的<code>(*p)-&gt;f(p)</code>在带来极大的便利性的同时，也带来了一层限制。</p>
+<p>那我们把条件放宽，能否实现一个兼容“OPF编程”的多接口方案呢？答案是可以，本文将介绍一种简单可用的实现方案。</p>
+<h1>单接口示例（用于对比）</h1>
+<p>先定义要实现的两个接口：<code>bird_i</code>包含了<code>fly</code>，<code>dog_i</code>包含了<code>run</code>和<code>bark</code>：</p>
+<pre><code class="language-c">typedef int (*bird_fly_fn_t)(void *self, int distance);
+typedef int (*dog_run_fn_t)(void *self, int distance);
+typedef int (*dog_bark_fn_t)(void *self, int count);
+</code></pre>
+<pre><code class="language-c">struct bird_i {
+	bird_fly_fn_t fly;
+};
+</code></pre>
+<pre><code class="language-c">struct dog_i {
+	dog_run_fn_t run;
+	dog_bark_fn_t bark;
+};
+</code></pre>
+<p>先看传统的OPF编程，如何实现这两个接口。</p>
+<p>定义一只普通的狗（哈士奇），来实现<code>dog_i</code>接口：</p>
+<pre><code class="language-c">struct husky {
+	struct dog_i *interface;
+	const char *name;
+};
+</code></pre>
+<p>定义一个全局接口<code>husky_interface</code>对象，这个接口对象，将被所有<code>struct husky</code>实例共享。</p>
+<pre><code class="language-c">struct dog_i husky_interface = {
+	.run = (dog_run_fn_t)husky_run,
+	.bark = (dog_bark_fn_t)husky_bark,
+};
+</code></pre>
+<p>然后是<code>husky</code>对<code>dog_i</code>的实现部分：</p>
+<pre><code class="language-c">int husky_run(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is running, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int husky_bark(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is barking, target count: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>接下来，定义一只普通的鸟（乌鸦），来实现<code>bird_i</code>接口：</p>
+<pre><code class="language-c">struct crow {
+	struct bird_i *interface;
+	const char *name;
+};
+</code></pre>
+<p>定义一个全局接口对象<code>crow_interface</code>，这个接口对象，将被所有<code>struct crow</code>实例共享。</p>
+<pre><code class="language-c">struct bird_i crow_interface = {
+	.fly = (bird_fly_fn_t)crow_fly,
+};
+</code></pre>
+<p>然后是<code>crow</code>对<code>bird_i</code>的实现部分：</p>
+<pre><code class="language-c">int crow_fly(struct crow *self, int distance)
+{
+	my_printf(&quot;Crow %s is flying, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>实现完毕。使用示例如下：</p>
+<pre><code class="language-c">struct husky hus;
+dog_run_simple((struct dog_i **)&amp;hus, 10);
+</code></pre>
+<pre><code class="language-c">struct crow black;
+bird_fly_simple((struct bird_i **)&amp;black, 1000);
+</code></pre>
+<p>这其中，<code>dog_run_simple</code>和<code>bird_fly_simple</code>这两个函数，只是对<code>(*p)-&gt;f(p)</code>的简单包装：</p>
+<pre><code class="language-c">int dog_run_simple(struct dog_i **dog, int distance)
+{
+	return (*dog)-&gt;run(dog, distance);
+}
+</code></pre>
+<pre><code class="language-c">int bird_fly_simple(struct bird_i **bird, int distance)
+{
+	return (*bird)-&gt;fly(bird, distance);
+}
+</code></pre>
+<h1>兼容“OPF编程”的多接口实现</h1>
+<p>简而言之，这个方案使用了一个单向链表，将所有的接口对象（或者说虚函数表）串起来，
+每个链表节点，都带有一个标志其接口类型的TAG。巧妙之处在于，结构体会进行一些“位移”，以兼容“OPF编程”。</p>
+<pre><code>                                        +--------+         +--------+
+                                        |     ---+--.      |     ---+--.
+                                        +--------+  |      +--------+  |
+  VARIABLE           OBJECT             |  DOG   |  |      |  BIRD  |  |
+  +--------+  .---&gt;  +--------+  .---&gt;  +--------+  `---&gt;  +--------+  `---&gt;
+  |     ---+--&#39;      |     ---+--&#39;      |  run   |         |  fly   |
+  +--------+         +--------+         +--------+         +--------+
+                     |        |         |  bark  |
+                     |        |         +--------+
+                     |        |
+                     |        |
+                     +--------+
+</code></pre>
+<p>现在我们来实现它。先要定义一些辅助的结构体和宏：</p>
+<pre><code class="language-c">struct complex_i_header {
+	void *next;
+	void *tag;
+};
+
+#define H_ADDR_TO_I_ADDR(h) (void *)((uintptr_t)h + sizeof(struct complex_i_header))
+#define I_ADDR_TO_H_ADDR(i) (struct complex_i_header *)((uintptr_t)i - sizeof(struct complex_i_header))
+
+#define COMPLEX_INTERFACE(TYPE)            \
+	struct {                           \
+		struct complex_i_header h; \
+		TYPE i;                    \
+	}
+</code></pre>
+<p>然后定义一个遍历这个链表，并调整OFFSET（以兼容“OPF编程”）的辅助函数：</p>
+<pre><code class="language-c">static int find_i_from_chain(void *interface_chain, void *tag, void **result)
+{
+	struct complex_i_header *h;
+
+	h = I_ADDR_TO_H_ADDR(interface_chain);
+
+	if (h-&gt;tag == tag) {
+		*result = interface_chain;
+		return 0;
+	}
+
+	if (h-&gt;next == NULL)
+		return 1;
+
+	return find_i_from_chain(h-&gt;next, tag, result);
+}
+</code></pre>
+<p>接下来定义一只“会飞的狗”（天使狗），同时实现<code>bird_i</code>和<code>dog_i</code>接口：</p>
+<pre><code class="language-c">struct angel_dog {
+	void *interface;
+	int wing_span;
+	const char *name;
+};
+</code></pre>
+<p>利用上面定义的宏，我们可以定义两个全局接口对象<code>angel_dog_interface_1</code>和<code>angel_dog_interface_2</code>。
+这两个接口对象，将被所有<code>struct angel_dog</code>实例共享。</p>
+<p>初始化的过程中，将这两个接口直接串起来。（有多少个接口串多少个）</p>
+<pre><code class="language-c">COMPLEX_INTERFACE(struct bird_i)
+angel_dog_interface_1 = {
+	.h.next = NULL,
+	.h.tag = &amp;bird_i_anchor,
+	.i.fly = (bird_fly_fn_t)angel_dog_fly,
+};
+
+COMPLEX_INTERFACE(struct dog_i)
+angel_dog_interface_2 = {
+	.h.next = H_ADDR_TO_I_ADDR(&amp;angel_dog_interface_1),
+	.h.tag = &amp;dog_i_anchor,
+	.i.run = (dog_run_fn_t)angel_dog_run,
+	.i.bark = (dog_bark_fn_t)angel_dog_bark,
+};
+</code></pre>
+<p>然后是<code>struct angel_dog</code>对<code>bird_i</code>和<code>dog_i</code>的实现部分：</p>
+<pre><code class="language-c">int angel_dog_fly(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is flying, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_run(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is running, target distance: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_bark(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is barking, target count: %d\n&quot;, self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>接着我们定义两个函数Demo，来使用实现了多接口的对象：</p>
+<pre><code class="language-c">int bird_fly_complex(void *bird, int distance)
+{
+	struct bird_i *i;
+	if (find_i_from_chain(*(void **)bird, &amp;bird_i_anchor, (void **)&amp;i))
+		return 1;
+
+	return i-&gt;fly(bird, distance);
+}
+
+int dog_run_complex(void *dog, int distance)
+{
+	struct dog_i *i;
+	if (find_i_from_chain(*(void **)dog, &amp;dog_i_anchor, (void **)&amp;i))
+		return 1;
+
+	return i-&gt;run(dog, distance);
+}
+</code></pre>
+<p>使用实例：</p>
+<pre><code class="language-c">struct angel_dog air;
+
+//...
+
+dog_run_complex(&amp;air, 100);
+bird_fly_complex(&amp;air, 2000);
+</code></pre>
+<p>前面提到的兼容性，体现在这里：</p>
+<p>因为链表里的第一个接口是<code>struct dog_i</code>类型的，所以也可以用传统的“OPF编程”方式使用它。</p>
+<pre><code class="language-c">dog_run_simple((struct dog_i **)&amp;air, 10);
+</code></pre>
+<h1>后记</h1>
+<p>因为篇幅原因，代码经过了轻度精简，部分与核心算法无关的代码被省去。</p>
+<p>希望有志学习“OPF编程”的学习者，将文中所属内容亲自实践一番，补上缺失部分将其运行起来，
+体味这套方案的运作方式，思考它的优劣，以及其是否有存在的必要。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

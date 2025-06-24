@@ -1,0 +1,301 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - Another Way For Multiple Interface In C Language</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>Another Way For Multiple Interface In C Language</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-06-21T14:00:00+08:00</div>
+				<div class="article-tags">C,OPF Programming</div>
+			</div>
+			<p>One <a href="/articles/en/multiple-interfaces-and-opf-programming.html">previous article</a> has introduced a way to
+implement <code>multiple interfaces</code> in a way that is compatible with
+<a href="/articles/en/what-is-opf-programming.html"><code>OPF Programming</code></a>.</p>
+<p>For comparison, this article will introduce a new way to implement <code>multiple interfaces</code>.</p>
+<p>We hope this new way provides some help when you are trying to understand the
+key to implement <code>multiple interfaces</code> and the difficulties you are facing.</p>
+<!--more-->
+
+
+<h1>Code Sample</h1>
+<p>To make things easier, the interface definitions have been kept same as the
+previous article.</p>
+<pre><code class="language-c">typedef int (*bird_fly_fn_t)(void *self, int distance);
+typedef int (*dog_run_fn_t)(void *self, int distance);
+typedef int (*dog_bark_fn_t)(void *self, int count);
+
+struct bird_i {
+	bird_fly_fn_t fly;
+};
+
+struct dog_i {
+	dog_run_fn_t run;
+	dog_bark_fn_t bark;
+};
+</code></pre>
+<p>Object types who implement those interfaces are just like the previous article,
+too.</p>
+<pre><code class="language-c">struct crow {
+	const char *name;
+	struct bird_i *bird_interface;
+};
+
+int crow_fly(struct crow *self, int distance);
+
+struct bird_i crow_interface = {
+	.fly = (bird_fly_fn_t)crow_fly,
+};
+
+int crow_init(struct crow *self, const char *name)
+{
+	self-&gt;bird_interface = &amp;crow_interface;
+	self-&gt;name = name;
+	return 0;
+}
+
+int crow_fly(struct crow *self, int distance)
+{
+	my_printf(&quot;Crow %s is flying, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>We put the <code>bird_interface</code> on a non-first position to highlight its
+difference from the <code>OPF Programming</code> compatible way.</p>
+<p>Let&#39;s implement the other interface for another type:</p>
+<pre><code class="language-c">struct husky {
+	const char *name;
+	struct dog_i *dog_interface;
+};
+
+int husky_run(struct husky *self, int distance);
+int husky_bark(struct husky *self, int distance);
+
+struct dog_i husky_interface = {
+	.run = (dog_run_fn_t)husky_run,
+	.bark = (dog_bark_fn_t)husky_bark,
+};
+
+int husky_init(struct husky *self, const char *name)
+{
+	self-&gt;dog_interface = &amp;husky_interface;
+	self-&gt;name = name;
+	return 0;
+}
+
+int husky_run(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is running, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+
+int husky_bark(struct husky *self, int distance)
+{
+	my_printf(&quot;Husky %s is barking, target count: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>Now, here is the object type who implements both interfaces:</p>
+<pre><code class="language-c">struct angel_dog {
+	const char *name;
+	int wing_span;
+	struct bird_i *bird_interface;
+	struct dog_i *dog_interface;
+};
+
+int angel_dog_fly(struct angel_dog *self, int distance);
+int angel_dog_run(struct angel_dog *self, int distance);
+int angel_dog_bark(struct angel_dog *self, int distance);
+
+struct bird_i angel_dog_bird_interface = {
+	.fly = (bird_fly_fn_t)angel_dog_fly,
+};
+
+struct dog_i angel_dog_dog_interface = {
+	.run = (dog_run_fn_t)angel_dog_run,
+	.bark = (dog_bark_fn_t)angel_dog_bark,
+};
+
+int angel_dog_init(struct angel_dog *self, const char *name, int wing_span)
+{
+	self-&gt;dog_interface = &amp;angel_dog_dog_interface;
+	self-&gt;bird_interface = &amp;angel_dog_bird_interface;
+	self-&gt;wing_span = wing_span;
+	self-&gt;name = name;
+	return 0;
+}
+
+int angel_dog_fly(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is flying, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_run(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is running, target distance: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+
+int angel_dog_bark(struct angel_dog *self, int distance)
+{
+	my_printf(&quot;Angel dog %s is barking, target count: %d\n&quot;,
+			self-&gt;name, distance);
+	return 0;
+}
+</code></pre>
+<p>The code is pretty similar to the code in <code>OPF Programming</code> compatible way
+except that struct fields for interface pointers are in different offsets.</p>
+<p>That similarity is not by accident. When we are using <code>Function Table</code> to do
+interface programming, the <code>implementor part</code> will be similar.
+The main difference is on the <code>user part</code>.</p>
+<p>Let&#39;s wrtie the <code>user part</code> code. First, we need to define this macro:</p>
+<pre><code class="language-c">#define CONTAINER_OF(P_OBJ, TYPE, FIELD) \
+	((TYPE *)((char *)P_OBJ - (uintptr_t)(&amp;((TYPE *)0)-&gt;FIELD)))
+</code></pre>
+<p>With this macro, we can get the address of the object from the address of the
+interface pointer.</p>
+<blockquote>
+<p><code>offsetof</code>, who is supported by modern compilers, can be used to implement
+<code>CONTAINER_OF</code>, but we are using a more traditional way in this article.</p>
+</blockquote>
+<p>Let&#39;s prepare some testing data:</p>
+<pre><code class="language-c">struct crow black;
+struct husky hus;
+struct angel_dog air;
+
+crow_init(&amp;black, &quot;Black&quot;);
+husky_init(&amp;hus, &quot;Hus&quot;);
+angel_dog_init(&amp;air, &quot;Air&quot;, 8);
+</code></pre>
+<p>If we use these data directly, code will be complicated:</p>
+<pre><code class="language-c">hus.dog_interface-&gt;bark(CONTAINER_OF(&amp;hus.dog_interface, struct husky, dog_interface),
+			1);
+
+black.bird_interface-&gt;fly(CONTAINER_OF(&amp;black.bird_interface, struct crow, bird_interface),
+			2);
+
+air.dog_interface-&gt;bark(CONTAINER_OF(&amp;air.dog_interface, struct angel_dog, dog_interface),
+			3);
+
+air.bird_interface-&gt;fly(CONTAINER_OF(&amp;air.bird_interface, struct angel_dog, bird_interface),
+			4);
+</code></pre>
+<p>The calling statements are too long. If we fetch out the key information and
+simplify it, we can get:</p>
+<pre><code class="language-c">obj.i-&gt;f(&amp;obj.i - OFFSET_OF_obj_i, 1);
+</code></pre>
+<p>It is still not clear enough. By doing some transformations, we can get an
+even simpler form:</p>
+<pre><code class="language-c">(*p)-&gt;f(p - OFFSET_OF_obj_i, 1);
+</code></pre>
+<p>By removing unnecessary arguments, the expression can be represented as:</p>
+<pre><code class="language-c">(*p)-&gt;f(p - N);
+</code></pre>
+<blockquote>
+<p>Now we can see the difference between this method and the <code>(*p)-&gt;f(p)</code> in
+<code>OPF Programming</code>.</p>
+</blockquote>
+<blockquote>
+<p>And this expression also exists in previous article
+&quot;<a href="/articles/en/cplusplus-virtual-function-machine-level.html">C++ Virtual Function In The Machine Level</a>&quot;.
+Comparing these 2 articles may help a lot.</p>
+</blockquote>
+<p>For different types, the <code>OFFSET_OF_obj_i</code> is different.
+And the <code>OFFSET_OF_obj_i</code> only exists during compile time.
+You can&#39;t get it in runtime. This is why we have to use macros here.</p>
+<h2>Simplification On Usage</h2>
+<p>By introducing this macro:</p>
+<pre><code class="language-c">#define INTERFACE_CALL(P, I_FIELD, METHOD, ...) \
+	(P)-&gt;I_FIELD-&gt;METHOD(CONTAINER_OF(&amp;(P)-&gt;I_FIELD, typeof(*(P)), I_FIELD),
+				__VA_ARGS__)
+</code></pre>
+<p>We can simplify the calling code:</p>
+<pre><code class="language-c">INTERFACE_CALL(&amp;hus, dog_interface, bark, 5);
+
+INTERFACE_CALL(&amp;black, bird_interface, fly, 6);
+
+INTERFACE_CALL(&amp;air, dog_interface, bark, 6);
+
+INTERFACE_CALL(&amp;air, bird_interface, fly, 7);
+</code></pre>
+<h2>More Simplification On Usage</h2>
+<p>If we add one more restriction: The fields for interfaces have to be specific
+names.</p>
+<blockquote>
+<p>e.g. Field for <code>bird_i</code> interface have to be <code>bird_interface</code>, and field for
+<code>dog_i</code> have to be <code>dog_interface</code>, etc.</p>
+</blockquote>
+<p>Then we can provide even simpler interfaces by implementing these macros:</p>
+<pre><code class="language-c">#define BIRD_FLY(P, ...) \
+	INTERFACE_CALL(P, bird_interface, fly, __VA_ARGS__)
+
+#define DOG_BARK(P, ...) \
+	INTERFACE_CALL(P, dog_interface, bark, __VA_ARGS__)
+</code></pre>
+<p>Examples of using the simplified interfaces:</p>
+<pre><code class="language-c">DOG_BARK(&amp;hus, 8);
+
+BIRD_FLY(&amp;black, 9);
+
+DOG_BARK(&amp;air, 10);
+
+BIRD_FLY(&amp;air, 11);
+</code></pre>
+<h1>Conclusion</h1>
+<p>The <code>multiple interfaces</code> implementation in this article is simpler and more
+efficient than the <code>OPF Programming</code> compatible way.</p>
+<p>But it also has some flaws: It&#39;s not dynamic enough.
+Users have to provide many information like data type, filed name, etc.</p>
+<p>We can not really fix the flaw, we can only cover it with macros.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

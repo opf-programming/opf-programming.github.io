@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - RISC-V在不同中断选项下，寄存器的保存规则</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>RISC-V在不同中断选项下，寄存器的保存规则</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-03-24T23:49:00+08:00</div>
+				<div class="article-tags">C,GCC,ISR,MCU,RISC-V,WCH</div>
+			</div>
+			<p>无特殊选项（普通函数，非中断服务函数<code>ISR</code>）:</p>
+<pre><code class="language-c">void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+	millis_count++;
+}
+</code></pre>
+<pre><code class="language-riscvasm">void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+    254c:	e000f7b7          	lui	a5,0xe000f
+    2550:	0007a223          	sw	zero,4(a5) # e000f004 &lt;_eusrstack+0xbffff004&gt;
+	millis_count++;
+    2554:	200007b7          	lui	a5,0x20000
+    2558:	0c478793          	addi	a5,a5,196 # 200000c4 &lt;millis_count&gt;
+    255c:	4398                	lw	a4,0(a5)
+    255e:	0705                	addi	a4,a4,1
+    2560:	c398                	sw	a4,0(a5)
+}
+    2562:	8082                	ret
+</code></pre>
+<p>&quot;machine&quot; 选项:</p>
+<pre><code class="language-c">void SysTick_Handler(void) __attribute__((interrupt(&quot;machine&quot;)));
+
+void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+	millis_count++;
+}
+</code></pre>
+<pre><code class="language-riscvasm">void SysTick_Handler(void)
+{
+    254c:	1141                	addi	sp,sp,-16
+    254e:	c63a                	sw	a4,12(sp)
+    2550:	c43e                	sw	a5,8(sp)
+	SysTick-&gt;SR = 0;
+    2552:	e000f7b7          	lui	a5,0xe000f
+    2556:	0007a223          	sw	zero,4(a5) # e000f004 &lt;_eusrstack+0xbffff004&gt;
+	millis_count++;
+    255a:	200007b7          	lui	a5,0x20000
+    255e:	0c478793          	addi	a5,a5,196 # 200000c4 &lt;millis_count&gt;
+    2562:	4398                	lw	a4,0(a5)
+    2564:	0705                	addi	a4,a4,1
+    2566:	c398                	sw	a4,0(a5)
+}
+    2568:	4732                	lw	a4,12(sp)
+    256a:	47a2                	lw	a5,8(sp)
+    256c:	0141                	addi	sp,sp,16
+    256e:	30200073          	mret
+</code></pre>
+<p>&quot;supervisor&quot; 选项:</p>
+<pre><code class="language-c">void SysTick_Handler(void) __attribute__((interrupt(&quot;supervisor&quot;)));
+
+void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+	millis_count++;
+}
+</code></pre>
+<pre><code class="language-riscvasm">void SysTick_Handler(void)
+{
+    254c:	1141                	addi	sp,sp,-16
+    254e:	c63a                	sw	a4,12(sp)
+    2550:	c43e                	sw	a5,8(sp)
+	SysTick-&gt;SR = 0;
+    2552:	e000f7b7          	lui	a5,0xe000f
+    2556:	0007a223          	sw	zero,4(a5) # e000f004 &lt;_eusrstack+0xbffff004&gt;
+	millis_count++;
+    255a:	200007b7          	lui	a5,0x20000
+    255e:	0c478793          	addi	a5,a5,196 # 200000c4 &lt;millis_count&gt;
+    2562:	4398                	lw	a4,0(a5)
+    2564:	0705                	addi	a4,a4,1
+    2566:	c398                	sw	a4,0(a5)
+}
+    2568:	4732                	lw	a4,12(sp)
+    256a:	47a2                	lw	a5,8(sp)
+    256c:	0141                	addi	sp,sp,16
+    256e:	10200073          	sret
+</code></pre>
+<p>&quot;user&quot; 选项:</p>
+<pre><code class="language-c">void SysTick_Handler(void) __attribute__((interrupt(&quot;user&quot;)));
+
+void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+	millis_count++;
+}
+</code></pre>
+<pre><code class="language-riscvasm">void SysTick_Handler(void)
+{
+    254c:	1141                	addi	sp,sp,-16
+    254e:	c63a                	sw	a4,12(sp)
+    2550:	c43e                	sw	a5,8(sp)
+	SysTick-&gt;SR = 0;
+    2552:	e000f7b7          	lui	a5,0xe000f
+    2556:	0007a223          	sw	zero,4(a5) # e000f004 &lt;_eusrstack+0xbffff004&gt;
+	millis_count++;
+    255a:	200007b7          	lui	a5,0x20000
+    255e:	0c478793          	addi	a5,a5,196 # 200000c4 &lt;millis_count&gt;
+    2562:	4398                	lw	a4,0(a5)
+    2564:	0705                	addi	a4,a4,1
+    2566:	c398                	sw	a4,0(a5)
+}
+    2568:	4732                	lw	a4,12(sp)
+    256a:	47a2                	lw	a5,8(sp)
+    256c:	0141                	addi	sp,sp,16
+    256e:	00200073          	uret
+</code></pre>
+<p>沁恒(WCH)定制选项:</p>
+<pre><code class="language-c">void SysTick_Handler(void) __attribute__((interrupt(&quot;WCH-Interrupt-fast&quot;)));
+
+void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+	millis_count++;
+}
+</code></pre>
+<pre><code class="language-riscvasm">void SysTick_Handler(void)
+{
+	SysTick-&gt;SR = 0;
+    254c:	e000f7b7          	lui	a5,0xe000f
+    2550:	0007a223          	sw	zero,4(a5) # e000f004 &lt;_eusrstack+0xbffff004&gt;
+	millis_count++;
+    2554:	200007b7          	lui	a5,0x20000
+    2558:	0c478793          	addi	a5,a5,196 # 200000c4 &lt;millis_count&gt;
+    255c:	4398                	lw	a4,0(a5)
+    255e:	0705                	addi	a4,a4,1
+    2560:	c398                	sw	a4,0(a5)
+}
+    2562:	30200073          	mret
+</code></pre>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

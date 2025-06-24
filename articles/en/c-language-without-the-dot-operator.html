@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - C Language Without The `.` Operator</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>C Language Without The <code>.</code> Operator</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2023-02-19T00:33:10+08:00</div>
+				<div class="article-tags">C</div>
+			</div>
+			<p><code>struct</code> is one of the most fundamental concepts in the C programming language.
+There are 2 operators for accessing fields of a struct: <code>.</code> and <code>-&gt;</code>.</p>
+<p>Let&#39;s think about this idea: Removing the <code>.</code> operator from the C programming
+language.</p>
+<!--more-->
+
+<h1>Removing the <code>.</code> operator</h1>
+<p>For a long time, people tend to explain the <code>-&gt;</code> operator by the <code>.</code> operator
+since students usually have learned the <code>.</code> operator earlier.</p>
+<p>For example, let&#39;s define a struct first:</p>
+<pre><code class="language-c">struct person {
+	char *name;
+	int age;
+};
+
+struct person harry = { &quot;Harry&quot;, 20 };
+
+struct person *leader = &amp;harry;
+</code></pre>
+<p>Many people would tell new-comers that</p>
+<pre><code class="language-c">leader-&gt;name
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">(*leader).name
+</code></pre>
+<p>It is OK, but we can also use the <code>-&gt;</code> operator to explain the <code>.</code> operator.
+We can say that</p>
+<pre><code class="language-c">harry.name
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">(&amp;harry)-&gt;name
+</code></pre>
+<p>And actually, this is what compilers and computers have been doing all the time.</p>
+<p>In the world of computers, <code>harry.name</code> doesn&#39;t exist, <code>(&amp;harry)-&gt;name</code> is
+closer to what the machines have been doing.</p>
+<h1>Let&#39;s go further</h1>
+<p>What if we also eliminate the <code>-&gt;</code> operator?</p>
+<p>The <code>-&gt;</code> operator is just a syntax sugar of the <code>*</code> operator combining
+the <code>+</code> operator.</p>
+<pre><code class="language-c">leader-&gt;name
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">*(leader + OFFSET_OF_name)
+</code></pre>
+<p>And</p>
+<pre><code class="language-c">harry.name
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">*(&amp;harry + OFFSET_OF_name)
+</code></pre>
+<p>Let&#39;s see some more complex examples.</p>
+<h2>Example 1</h2>
+<pre><code class="language-c">a.b.c
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">(&amp; (&amp;a)-&gt;b)-&gt;c
+</code></pre>
+<p>which means</p>
+<pre><code class="language-c">*(&amp;*(&amp;a + OFFSET_OF_b) + OFFSET_OF_c)
+</code></pre>
+<p>The concatenating <code>&amp;</code> and <code>*</code> will consume each other, so it becomes</p>
+<pre><code class="language-c">*(&amp;a + OFFSET_OF_b + OFFSET_OF_c)
+</code></pre>
+<p>Cool !</p>
+<p>So when you write <code>&amp;a.b.c</code>, it is actually</p>
+<pre><code class="language-c">&amp;*(&amp;a + OFFSET_OF_b + OFFSET_OF_c)
+</code></pre>
+<p>which is</p>
+<pre><code class="language-c">&amp;a + OFFSET_OF_b + OFFSET_OF_c
+</code></pre>
+<p>No <code>*</code> operator anymore, it&#39;s just <code>+</code> operations.</p>
+<p>Did you know that <code>&amp;a.b.c</code> is a cheaper operation than <code>a.b.c</code> ?</p>
+<h2>Example 2</h2>
+<pre><code class="language-c">&amp;a-&gt;b.c
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">&amp;*(&amp;*(a + OFFSET_OF_b) + OFFSET_OF_c)
+</code></pre>
+<p>which becomes</p>
+<pre><code class="language-c">a + OFFSET_OF_b + OFFSET_OF_c
+</code></pre>
+<h2>Example 3</h2>
+<pre><code class="language-c">&amp;a-&gt;b-&gt;c
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">&amp;*(*(a + OFFSET_OF_b) + OFFSET_OF_c)
+</code></pre>
+<p>which means</p>
+<pre><code class="language-c">*(a + OFFSET_OF_b) + OFFSET_OF_c
+</code></pre>
+<h2>Example 4</h2>
+<p>Let&#39;s do a more complex exercise:</p>
+<pre><code class="language-c">&amp;a-&gt;b.c.d-&gt;e.f
+</code></pre>
+<p>means</p>
+<pre><code class="language-c">&amp;*(&amp;*(*(&amp;*(&amp;*(a + OFFSET_OF_b) + OFFSET_OF_c) + OFFSET_OF_d) + OFFSET_OF_e) + OFFSET_OF_f)
+</code></pre>
+<p>which means</p>
+<pre><code class="language-c">*(a + OFFSET_OF_b + OFFSET_OF_c + OFFSET_OF_d) + OFFSET_OF_e + OFFSET_OF_f
+</code></pre>
+<h1>Let&#39;s go even further</h1>
+<p>When temporary variable <code>count</code> is on the stack,</p>
+<pre><code class="language-c">count
+</code></pre>
+<p>can also be represented as</p>
+<pre><code class="language-c">*&amp;count
+</code></pre>
+<p>which can also be</p>
+<pre><code class="language-c">*(FRAME_POINTER + OFFSET_OF_count)
+</code></pre>
+<p>A struct object on stack follows the same rule:</p>
+<pre><code class="language-c">leader.name
+</code></pre>
+<p>becomes</p>
+<pre><code class="language-c">*(&amp;leader + OFFSET_OF_name)
+</code></pre>
+<p>then becomes</p>
+<pre><code>*(FRAME_POINTER + OFFSET_OF_leader + OFFSET_OF_name)
+</code></pre>
+<p>And global variables can also be put into this rule.</p>
+<pre><code class="language-c">my_global_variable
+</code></pre>
+<p>can also be represented as</p>
+<pre><code class="language-c">*&amp;my_global_variable
+</code></pre>
+<p>which is also</p>
+<pre><code class="language-c">*(GLOBAL_VARIABLE_BASE_ADDRESS + OFFSET_OF_my_global_variable)
+</code></pre>
+<p>All <code>variables</code> and <code>struct fields</code> can be represented by additions of integers.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

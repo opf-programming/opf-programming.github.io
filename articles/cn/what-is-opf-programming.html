@@ -1,0 +1,244 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - 什么是`OPF`编程?</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>什么是<code>OPF</code>编程?</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-05-28T15:32:00+08:00</div>
+				<div class="article-tags">OPF Programming</div>
+			</div>
+			<h1>简要介绍</h1>
+<p><code>OPF</code>（<code>O</code>bject <code>P</code>ointer <code>F</code>orwarding）编程，是一套编程思路和技巧，主要用于底层编程语言（比如C语言）。</p>
+<p>它也可以表述为：</p>
+<pre><code class="language-c">(*p)-&gt;f(p)
+</code></pre>
+<p>在解释原理之前，我们先展示出这张内存布局图：</p>
+<pre><code>  VARIABLE           OBJECT             INTERFACE
+  +--------+  .---&gt;  +--------+  .---&gt;  +--------+
+  |     ---+--&#39;      |     ---+--&#39;      |   f1   |
+  +--------+         +--------+         +--------+
+                     |        |         |   f2   |
+                     |        |         +--------+
+                     |        |
+                     |        |
+                     +--------+
+</code></pre>
+<p>这张图已经展示了<code>(*p)-&gt;f(p)</code>的工作方式。</p>
+<p>这个技巧的终极目的，是提供一种“自顶向下”的程序设计方式。“自顶向下”是构建大型程序的关键。</p>
+<p>最朴素的程序设计方式，即“自底向上”的设计方式，是实现<code>A</code>，然后在<code>A</code>的基础上实现<code>B</code>。</p>
+<p>自顶向下的设计，则是先实现<code>B</code>，然后在另外的时间，或者由另外的人，实现<code>A</code>，从而让我们的B可以运行。</p>
+<p>这听上去可能有点奇怪，<code>A</code>还没实现呢，那么依赖于<code>A</code>的<code>B</code>要如何实现呢？</p>
+<p><code>OPF</code>就是来解决这个问题的。</p>
+<h2>例子</h2>
+<p>假设我们需要编写一套通用的绘图函数，类似画矩形<code>draw_rect</code>, 画圆圈<code>draw_circle</code>，这些绘图函数要能够适应不同的设备。</p>
+<p>如何处理呢？只要有一个通用的画点<code>draw_point</code>函数，就能够在它的基础上实现画矩形，画圆，所以问题简化成了：
+<em>实现一个通用的画点<code>draw_point</code>函数</em>。</p>
+<p>使用“OPF”技巧，我们编写这样的<em>接口结构体</em>：</p>
+<pre><code class="language-c">typedef int (*painter_draw_point_fn_t)(void *self, struct point pos, int color);
+
+struct painter_i {
+	painter_draw_point_fn_t draw_point;
+};
+</code></pre>
+<p>接下来，神奇的事情就产生了，我们可以在没有实现任何屏幕驱动代码的情况下，先去实现画矩形的函数！</p>
+<pre><code class="language-c">int draw_rect(struct painter_i **painter, struct point p1, struct point p2,
+		int color)
+{
+	struct point c;
+	/* ... */
+	for (/* 获取到下一个矩形边的点到 c 里面 */) {
+		/* (*p)-&gt;f(p) */
+		(*painter)-&gt;draw_point(painter, c, color);
+	}
+	/* ... */
+	return 0;
+}
+</code></pre>
+<p>这就是所谓的“自顶向下”程序设计。先实现上层逻辑，再实现底层逻辑。</p>
+<p>底层的部分可以由我们自己，或者我们的伙伴，去实现具体的屏幕驱动。</p>
+<p>举个例子，我们现在先实现一套RGB屏幕的驱动：</p>
+<pre><code class="language-c">struct rgb_screen {
+	struct painter_i *interface;	/* 此字段必须是第一个字段 */
+	int color_type;
+	int color_mask;
+	/* ... */
+};
+</code></pre>
+<pre><code class="language-c">int rgb_screen_draw_point(struct rgb_screen *self, struct point pos, int color)
+{
+	/*
+	 * 在RGB屏幕上画点，
+	 * 本函数会使用`self-&gt;color_type`和`self-&gt;color_mask`。
+	 */
+}
+
+struct pointer_i rgb_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)rgb_screen_draw_point,
+};
+
+int rgb_screen_init(struct rgb_screen *self)
+{
+	self-&gt;interface = &amp;rgb_screen_interface;
+}
+</code></pre>
+<p>接下来，我们再来实现一套单色屏幕的驱动：</p>
+<pre><code class="language-c">struct mono_screen {
+	struct painter_i *interface;	/* 此字段必须是第一个字段 */
+	unsigned char bit_buffer[1024*768];
+	/* ... */
+};
+</code></pre>
+<pre><code class="language-c">int mono_screen_draw_point(struct mono_screen *self, struct point pos,
+		int color)
+{
+	/*
+	 * 在单色屏幕上画点，
+	 * 本函数会使用`self-&gt;bit_buffer`。
+	 */
+}
+
+struct pointer_i mono_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)mono_screen_draw_point,
+};
+
+int mono_screen_init(struct mono_screen *self)
+{
+	self-&gt;interface = &amp;mono_screen_interface;
+}
+</code></pre>
+<p>上述“底层”的代码，可以直接搭配已经写好的上层代码使用：</p>
+<pre><code class="language-c">struct rgb_screen scr1;
+struct mono_screen scr2;
+
+draw_rect(&amp;scr1, p1, p2, RED);
+draw_rect(&amp;scr2, p1, p2, WHITE);
+
+draw_circle(&amp;scr1, p1, 10, RED);
+draw_circle(&amp;scr2, p1, 10, RED);
+</code></pre>
+<p>不少人在学习“OPF”技巧的时候，觉得复杂，难以看清全貌。
+这是一种错觉，或者说心态上的障碍。</p>
+<p>其实应该换个思路想想：</p>
+<p>这个技巧的学习曲线，纵然不是那么平滑，但是一旦迈过，后面就是一马平川！</p>
+<p>带着这种心理预期，只要跟着例子，把上述步骤按顺序走，就一定能得到想要的效果。</p>
+<p>这个过程经过很多次重复之后会形成直觉，后面甚至不需要敲代码，就能在脑海中构建出程序的模样。</p>
+<h1>编码规范</h1>
+<p>“OPF”的核心思想，不涉及到编码规范。但是为了协作，一个好用的编码规范是很必要的。
+为此，“OPF”拟定了如下的编码规范：</p>
+<ol>
+<li>方法类函数，首个参数必须是方法所归属的结构体，且变量名建议使用<code>self</code>。</li>
+<li>接口结构体，以<code>_i</code>结尾。比如<code>struct painter_i</code>, <code>struct iter_i</code>等等。</li>
+<li>函数只返回状态码，计算结果通过一个指针参数传出来。</li>
+<li>遵循<a href="https://www.kernel.org/doc/html/v6.6/process/coding-style.html">Linux内核代码风格</a>。</li>
+</ol>
+<p><strong>对于上述第3条，作如下解释</strong>：</p>
+<p>很多C代码通过返回值返回计算结果，通过指针参数返回错误信息，示例如下：</p>
+<pre><code class="language-c">int fn(int a, int b, int *error)
+{
+	if (some_check()) {
+		*error = CODE_xxx;
+		return SOMETHING;
+	}
+
+	return a + b;
+}
+</code></pre>
+<p>“OPF” 不使用上述风格，而是统一使用下面的风格：</p>
+<pre><code class="language-c">int fn(int a, int b, int *result)
+{
+	if (some_check())
+		return CODE_xxx;
+
+	*result = a + b;
+	return 0;
+}
+</code></pre>
+<p>即通过返回值返回错误信息，通过指针参数返回计算结果。
+且无特殊情况时，所有的函数都一致通过返回<code>0</code>表达“成功”。</p>
+<blockquote>
+<p>上面这一点，与很多返回布尔值，即用<code>1</code>表示“成功”的代码风格不同，需要注意。</p>
+</blockquote>
+<p>这样做的好处，是可以使用统一的错误处理代码。</p>
+<p><strong>对于上述第4条，作如下解释</strong>：</p>
+<p>使用Linux内核代码风格，有两个原因:</p>
+<ul>
+<li>它使用广泛，在C语言的世界里被广泛使用。</li>
+<li>它的大缩进有利于督促编写更好的<strong>模块化</strong>代码。</li>
+</ul>
+<p>由于使用了Linux内核代码风格，变量，函数和类型命名都是用蛇形风格（<code>a_b_c</code>），而不用驼峰（<code>aBc</code>）或者Pascal风格（<code>Abc</code>）。</p>
+<p>使用结构体，枚举，联合体的时候，不使用<code>typedef</code>, 而是写全类型。</p>
+<h1>迭代器</h1>
+<p>“OPF”大量使用迭代器。迭代器本身只是“OPF”思路的实践应用，但由于使用普遍，故而值得单独提出来说。</p>
+<p>“OPF”的迭代器，只需实现两个接口: <code>_iter_init</code> 和 <code>_iter_next</code>，
+使用时，代码看上去大概是这样：</p>
+<pre><code class="language-c">int blah(void)
+{
+	struct xxx_iter iter;
+	struct element *tmp;
+	size_t index;
+
+	if (xxx_iter_init(&amp;iter))
+		return XXX_ITER_INIT_failed;
+
+	//while (!xxx_iter_next(&amp;iter, &amp;tmp, NULL))
+	while (!xxx_iter_next(&amp;iter, &amp;tmp, &amp;index)) {
+		if (do_something_on_element(tmp))
+			return XXX_ITER_ELE_ERROR;
+	}
+
+	return 0;
+}
+</code></pre>
+<p>以上的迭代器设计方式，是一种建议而非强制。</p>
+<p>迭代器的合理使用，能够极大程度提高代码的可读性。同时灵活使用迭代器还可以规避大量重复代码。</p>
+<h1>使用建议</h1>
+<p>“<strong>重剑无锋，大巧不工</strong>”。<code>OPF</code>是编程范式界的“拳击”，
+理论和套路很少，用精简的招式，快速的反应来应对现实世界里的各种编程难题。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

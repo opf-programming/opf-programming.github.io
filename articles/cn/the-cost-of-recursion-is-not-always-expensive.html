@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - “递归”的开销，并不总是很大</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>“递归”的开销，并不总是很大</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-03-15T23:23:00+08:00</div>
+				<div class="article-tags">Algorithm,C,Recursion</div>
+			</div>
+			<p>今天跟群友讨论，发现很多朋友对递归存在一定偏见，其中有位朋友给出代码对比，证实递归性能比循环要差，递归的代码大概是这样：</p>
+<pre><code class="language-c">int fib_recur1(int n)
+{
+	if (n == 1)
+		return 1;
+	if (n == 2)
+		return 1;
+	return fib_recur1(n - 1) + fib_recur1(n - 2);
+}
+</code></pre>
+<p>“竞争对手”循环的代码大概是这样：</p>
+<pre><code class="language-c">int fib_loop(int n)
+{
+	int n1, n2, i, tmp;
+	n1 = 1;
+	n2 = 1;
+	for (i = 2; i &lt; n; i++) {
+		tmp = n2;
+		n2 = n1 + n2;
+		n1 = tmp;
+	}
+	return n2;
+}
+</code></pre>
+<p>这种写法下，循环版肯定快了一个数量级。但这个并不是“递归”和“循环”的对比，而是两种不同计算方式的对比。</p>
+<p>如果要使用相同的计算方式，递归代码应该是下面这样：</p>
+<pre><code class="language-c">int fib_recur2_(int n1, int n2, int cnt, int target)
+{
+	if (cnt &lt; target)
+		return fib_recur2_(n2, n1 + n2, cnt + 1, target);
+	else
+		return n2;
+}
+</code></pre>
+<p>为了对外提供一样的接口，另用一个函数包装一下：</p>
+<pre><code class="language-c">int fib_recur2(int n)
+{
+	return fib_recur2_(1, 1, 2, n);
+}
+</code></pre>
+<p>补上一个main函数：</p>
+<pre><code class="language-c">int main()
+{
+	printf(&quot;fib_recur1(10): %d\n&quot;, fib_recur1(10));
+	printf(&quot;fib_loop(10): %d\n&quot;, fib_loop(10));
+	printf(&quot;fib_recur2(10): %d\n&quot;, fib_recur2(10));
+	return 0;
+}
+</code></pre>
+<p>跑跑看：</p>
+<pre><code class="language-sh">$ gcc a.c &amp;&amp; ./a.exe
+fib_recur1(10): 55
+fib_loop(10): 55
+fib_recur2(10): 55
+</code></pre>
+<p>感兴趣的朋友可以做个性能测试。</p>
+<p>在没有尾调用优化的情况下， 第二个递归版本空间开销肯定更大（存在多重栈帧），但是时间开销上应该是和循环版本差不多的。</p>
+<p>希望这个小例子能够消除一部分人对递归的偏见，毕竟很多地方，递归可能就是唯一解，这个技能是需要达到一定熟练度的。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

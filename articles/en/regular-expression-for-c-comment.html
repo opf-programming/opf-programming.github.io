@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - Use Regular Expression To Match C Comments</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>Use Regular Expression To Match C Comments</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-06-28T23:51:00+08:00</div>
+				<div class="article-tags">C,Regular Expression</div>
+			</div>
+			<p>We want to match multi-lined comments in C programming language with regular
+expressions.  And this is the code we need to deal with:</p>
+<pre><code class="language-c">/**a*/b/*c**/
+</code></pre>
+<p>We may want to use regular Expression like <code>/\*.*\*/</code>.
+(Use <code>.*</code> to match the whole comments)</p>
+<p>But it will not work, we will get this result:</p>
+<pre><code class="language-c">/**a*/b/*c**/
+</code></pre>
+<p>instead of the expected result:</p>
+<pre><code class="language-c">/**a*/
+</code></pre>
+<p>Because regular expressions are <strong>greedy</strong>, they always trying to match more.</p>
+<p>Modern regular expression engines have added extentions to traditional regular
+expressions.</p>
+<p>For example, many engines support <strong>non-greedy</strong> quantifiers.</p>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions/Quantifiers">Regular expression in <code>JavaScript</code></a> support <strong>non-greedy</strong>
+quantifiers like <code>*?</code>, <code>+?</code>, <code>{n,m}?</code>, etc.</p>
+<p>With those <strong>non-greedy</strong> quantifiers, matching C comments is easy:</p>
+<pre><code class="language-javascript">/\/\*.*?\*\//.exec(&quot;/**a*/b/*c**/&quot;)[0];
+</code></pre>
+<p>We will get the expected result:</p>
+<pre><code>&#39;/**a*/&#39;
+</code></pre>
+<p>Besides <strong>non-greedy</strong> quantifiers, advanced regular expressions support
+<strong>negative</strong> group, we have another solution with it:</p>
+<pre><code class="language-javascript">/\/\*([^*]|\*(?!\/))*\*\//.exec(&quot;/**a*/b/*c**/&quot;)[0];
+</code></pre>
+<p>We will also get the expected result here:</p>
+<pre><code>&#39;/**a*/&#39;
+</code></pre>
+<p>But those solutions are not good enough since many important regular
+expression engines do <strong>NOT</strong> support those advanced functionalities.</p>
+<p>For example, <a href="https://github.com/westes/flex"><code>flex</code></a> and <a href="https://www.erlang.org/doc/apps/parsetools/leex.html"><code>leex</code></a> only support the basic regular
+expressions.  When we use these tools, all we have is the basic regular
+expressions.</p>
+<blockquote>
+<p>We can read <a href="https://westes.github.io/flex/manual/Patterns.html#Patterns"><code>documents of flex</code></a> and
+<a href="https://www.erlang.org/doc/apps/parsetools/leex.html#module-regular-expressions"><code>documents of leex</code></a> if we are not sure about anything.</p>
+</blockquote>
+<p>So how do we solve this problem?</p>
+<h2>The Good Solution</h2>
+<p>The final solution can be explained by this pseudo regular expression:</p>
+<pre><code class="language-text">{START}({NOT_WORRYING}*{WORRYING}+{NOT_WORRYING_NOR_FINAL})*{NOT_WORRYING}*{WORRYING}+{FINAL}
+</code></pre>
+<p>With this solution, the regular expression can be written as:</p>
+<pre><code>/\*([^*]*\*+[^*/])*[^*]*\*+/
+</code></pre>
+<blockquote>
+<p>The details of this solution can be found in
+<a href="http://www.cs.man.ac.uk/~pjj/cs212/ex2_str_comm.html">this site</a>.</p>
+</blockquote>
+<p>To make it clearer, we can split the expression into pieces:</p>
+<pre><code class="language-text">{START}							/\*
+({NOT_WORRYING}*{WORRYING}+{NOT_WORRYING_NOR_FINAL})*	([^*]*\*+[^*/])*
+{NOT_WORRYING}*						[^*]*
+{WORRYING}+{FINAL}					\*+/
+</code></pre>
+<p>Now it&#39;s much easier to understand this solution.</p>
+<h2>Complex Example</h2>
+<p>Let&#39;s write a C language file who contains some random comments:</p>
+<pre><code class="language-c">/*** this is c comment ** /
+ **/
+
+int blah(struct myobj **p)
+{
+	return (*p)-&gt;f(p);
+}
+
+/* /* /*
+ * other c comment
+ */
+</code></pre>
+<p>Let&#39;s match the comments in JavaScript code:</p>
+<pre><code class="language-javascript">/// The contents of the C file have been read into variable `c`.
+/\/\*([^*]*\*+[^*/])*[^*]*\*+\//s.exec(c)[0];
+</code></pre>
+<p>The result of the JavaScript expression:</p>
+<pre><code>&#39;/*** this is c comment ** /\n **/&#39;
+</code></pre>
+<p>As we can see, we have matched the complete comment.</p>
+<h2>Using <code>sed</code></h2>
+<p>We can also use that solution with <code>sed</code> command to do something.
+For example, if we want to replace all comments with a empty line, we can just:</p>
+<pre><code class="language-sh">sed -z -E &quot;s#/\*([^*]*\*+[^*/])*[^*]*\*+/##g&quot; a.c
+</code></pre>
+<p>The result:</p>
+<pre><code class="language-c">
+
+int blah(struct myobj **p)
+{
+	return (*p)-&gt;f(p);
+}
+
+</code></pre>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - What is `OPF` Programming?</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>What is <code>OPF</code> Programming?</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-05-28T15:32:00+08:00</div>
+				<div class="article-tags">OPF Programming</div>
+			</div>
+			<h1>Introduction</h1>
+<p>OPF (<code>O</code>bject <code>P</code>ointer <code>F</code>orwarding) Programming is a programming skill for
+low-level languages like C language.</p>
+<p>It can also be represented by:</p>
+<pre><code class="language-c">(*p)-&gt;f(p)
+</code></pre>
+<p>Before explanations, we would like to show this memory layout graph first:</p>
+<pre><code>  Variable           Object             Interface (Function Pointers)
+  +--------+  .---&gt;  +--------+  .---&gt;  +--------+
+  |     ---+--&#39;      |     ---+--&#39;      |   f1   |
+  +--------+         +--------+         +--------+
+                     |        |         |   f2   |
+                     |        |         +--------+
+                     |        |
+                     |        |
+                     +--------+
+</code></pre>
+<p>This graph has shown how <code>(*p)-&gt;f(p)</code> works.</p>
+<p>The aim of this skill, is to provide a <code>Top-Down</code> programming way,
+which is the key to build huge program.</p>
+<p>Programs designed in the <code>Bottom-Up</code> style:</p>
+<p>We implement <code>A</code>, then implement <code>B</code> who is based on <code>A</code>.</p>
+<p>Programs designed in the <code>Top-Down</code> style:</p>
+<p>We implement <code>B</code> first, then someone else implement <code>A</code> to finish our <code>B</code>.</p>
+<p>So:</p>
+<blockquote>
+<p>How can we finish <code>B</code> when <code>B</code> depends on <code>A</code> and <code>A</code> does not exist yet?</p>
+</blockquote>
+<p><code>OPF</code> make it possible.</p>
+<h2>Example</h2>
+<p>Say we want to write a set of function like <code>draw_rect</code>, <code>draw_circle</code>,
+which support different printing targets.</p>
+<p>How to do that? If we have a generic <code>draw_point</code>, it would be easy to
+implement those function.</p>
+<p>So the problem got converted into:</p>
+<blockquote>
+<p>How to implement a generic <code>draw_point</code>.</p>
+</blockquote>
+<p>With the <code>Point Five</code> skill, we write a interface struct like this:</p>
+<pre><code class="language-c">typedef int (*painter_draw_point_fn_t)(void *self, struct point pos, int color);
+
+struct painter_i {
+	painter_draw_point_fn_t draw_point;
+};
+</code></pre>
+<p>Now, here comes the magical part: We can implement the drawing function without
+any real screen drivers!</p>
+<pre><code class="language-c">int draw_rect(struct painter_i **painter, struct point p1, struct point p2,
+		int color)
+{
+	struct point c;
+	/* ... */
+	for (/* get the next point to draw and store the point in c */) {
+
+		/* (*p)-&gt;f(p) */
+		(*painter)-&gt;draw_point(painter, c, color);
+
+
+	}
+	/* ... */
+	return 0;
+}
+</code></pre>
+<p>This is the <code>Top-Down</code> design.</p>
+<p>Now let&#39;s implement a RGB screen driver:</p>
+<pre><code class="language-c">struct rgb_screen {
+	struct painter_i *interface;	/* has to be the first field. */
+	int color_type;
+	int color_mask;
+	/* ... */
+};
+</code></pre>
+<pre><code class="language-c">int rgb_screen_draw_point(struct rgb_screen *self, struct point pos, int color)
+{
+	/*
+	 * Draw point on the RGB screen,
+	 * `self-&gt;color_type` and `self-&gt;color_mask` will be used here.
+	 */
+}
+
+struct pointer_i rgb_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)rgb_screen_draw_point,
+};
+
+int rgb_screen_init(struct rgb_screen *self)
+{
+	self-&gt;interface = &amp;rgb_screen_interface;
+}
+</code></pre>
+<p>Then let&#39;s implement a mono screen driver:</p>
+<pre><code class="language-c">struct mono_screen {
+	struct painter_i *interface;	/* has to be the first field. */
+	unsigned char bit_buffer[1024 * 768];
+	/* ... */
+};
+</code></pre>
+<pre><code class="language-c">int mono_screen_draw_point(struct mono_screen *self, struct point pos,
+		int color)
+{
+	/*
+	 * Draw point on the mono screen,
+	 * `self-&gt;bit_buffer` will be used here.
+	 */
+}
+
+struct pointer_i mono_screen_interface = {
+	.draw_point = (painter_draw_point_fn_t)mono_screen_draw_point,
+};
+
+int mono_screen_init(struct mono_screen *self)
+{
+	self-&gt;interface = &amp;mono_screen_interface;
+}
+</code></pre>
+<p>Now here is how we use the code:</p>
+<pre><code class="language-c">struct rgb_screen scr1;
+struct mono_screen scr2;
+
+draw_rect(&amp;scr1, p1, p2, RED);
+draw_rect(&amp;scr2, p1, p2, WHITE);
+
+draw_circle(&amp;scr1, p1, 10, RED);
+draw_circle(&amp;scr2, p1, 10, RED);
+</code></pre>
+<p>You may feel <code>OPF</code> Programming a little bit complex, and don&#39;t understand why
+those things are done.</p>
+<p>But when we get more familiar with this skill,
+we can construct the whole thing inside our head without effort.</p>
+<h1>Rules and Styles</h1>
+<p>The core concept of <code>OPF</code> do not have coding rules, but a consistent coding rule
+can make collaborating easier.</p>
+<p>After some practice, some simple rules are collected:</p>
+<ol>
+<li>The 1st parameter should be the object pointers, and should be named <code>self</code>.</li>
+<li>Interface structs should be named with suffix <code>_i</code>.  (e.g. <code>struct iter_i</code>)</li>
+<li>Function only return status code, results are passed out though pointers.</li>
+<li>Follow the <a href="https://www.kernel.org/doc/html/v6.6/process/coding-style.html">Linux kernel coding style</a>.</li>
+</ol>
+<p><strong>Explanations for the 3th Rule</strong></p>
+<p>Many C code return the result directly, and return error code by pointer.</p>
+<p>e.g.</p>
+<pre><code class="language-c">int fn(int a, int b, int *error)
+{
+	if (some_check()) {
+		*error = CODE_xxx;
+		return SOMETHING;
+	}
+
+	return a + b;
+}
+</code></pre>
+<p>But the <code>OPF</code> Programming use the following style:</p>
+<pre><code class="language-c">int fn(int a, int b, int *result)
+{
+	if (some_check())
+		return CODE_xxx;
+
+	*result = a + b;
+	return 0;
+}
+</code></pre>
+<p>Error code are returned, and result is return through argument pointer.
+Returning 0 means success.</p>
+<blockquote>
+<p>Some coding styles return booleans, which means <code>1</code> means success, this is
+different from <code>OPF</code> Programming.</p>
+</blockquote>
+<p><strong>Explanations for the 4th Rule</strong></p>
+<p>There are 2 reasons for choosing Linux kernel coding style:</p>
+<ul>
+<li>It is widely used in the world of C language.</li>
+<li>Its wide indentation force us to write modular code.</li>
+</ul>
+<p>Since we use Linux kernel coding style, variables, functions and types are all
+named in snake case (like <code>a_b_c</code>).</p>
+<p>Camel case (like <code>aBc</code>) or Pascal case (like <code>Abc</code>) is not used.</p>
+<h1>Iterator (Another example)</h1>
+<p>The <code>OPF Programming</code> uses many iterators, the iterator itself is an
+application of <code>OPF Programming</code>, but we pick it out and describe it since
+it&#39;s widely used.</p>
+<p>In <code>OPF Programming</code>, we only need to implement 2 interfaces:</p>
+<p><code>_iter_init</code> and <code>_iter_next</code>.</p>
+<p>When we use it, code should look like this:</p>
+<pre><code class="language-c">int blah(void)
+{
+	struct xxx_iter iter;
+	struct element *tmp;
+	size_t index;
+
+
+	if (xxx_iter_init(&amp;iter))
+		return XXX_ITER_INIT_failed;
+
+	while (!xxx_iter_next(&amp;iter, &amp;tmp, &amp;index)) {
+		if (do_something_on_element(tmp))
+			return XXX_ITER_ELE_ERROR;
+	}
+
+	return 0;
+}
+</code></pre>
+<h1>Suggestions</h1>
+<p>The <code>OPF Programming</code> style is like Boxing in the programming paradigm world.
+It contains only a few rules, but we can solve huge problem by combing those
+simple rules.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

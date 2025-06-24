@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - 相对跳转指令，在不同CPU架构上的区别</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>相对跳转指令，在不同CPU架构上的区别</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-11-14T10:52:00+08:00</div>
+				<div class="article-tags">ARM,Assembly Language,MCS-51,RISC-V</div>
+			</div>
+			<p>大部分的跳转都是相对地址跳转，即偏移量跳转，然而这个偏移量，在不同的架构上表现是不同的。这篇文章将会对比几种架构来展示其中的细节。</p>
+<!--more-->
+
+
+<h2>RISC-V</h2>
+<p>汇编源码（rv.asm）：</p>
+<pre><code class="language-riscvasm">l1:	beq             x0, x0, l1
+l2:	beq             x0, x0, l1
+</code></pre>
+<p>编译后进行反汇编看机器码：</p>
+<pre><code class="language-sh">riscv64-unknown-elf-as rv.asm -o rv.o &amp;&amp; riscv64-unknown-elf-objdump -S rv.o
+</code></pre>
+<pre><code class="language-riscvasm">rv.o:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000000000 &lt;l1&gt;:
+   0:   00000063                beqz    zero,0 &lt;l1&gt;
+
+0000000000000004 &lt;l2&gt;:
+   4:   fe000ee3                beqz    zero,0 &lt;l1&gt;
+</code></pre>
+<p>根据<a href="https://github.com/riscv/riscv-isa-manual/releases/download/20240411/unpriv-isa-asciidoc.pdf">RISC-V指令集手册</a>, <code>beq</code>指令的编码格式为：</p>
+<pre><code class="language-plaintext">32             25    20    15    12             7         0
+ +--------------+-----+-----+-----+-------------+---------+
+ | imm[12|10:5] | rs2 | rs1 | 000 | imm[4:1|11] | 1100011 |
+ +--------------+-----+-----+-----+-------------+---------+
+</code></pre>
+<p>所以上面两条指令的跳转偏移量分别是<code>0</code>和一个有符号数<code>0b1111111_1110_0</code>（值为<code>-4</code>）。</p>
+<h2>ARM</h2>
+<p>汇编源码（arm.asm）：</p>
+<pre><code class="language-armasm">l1:	beq             l1
+l2:	beq             l1
+</code></pre>
+<p>编译后进行反汇编看机器码：</p>
+<pre><code class="language-sh">arm-none-eabi-as arm.asm -o arm.o &amp;&amp; arm-none-eabi-objdump -S arm.o
+</code></pre>
+<pre><code class="language-armasm">arm.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 &lt;l1&gt;:
+   0:   0afffffe        beq     0 &lt;l1&gt;
+
+00000004 &lt;l2&gt;:
+   4:   0afffffd        beq     0 &lt;l1&gt;
+</code></pre>
+<p>根据<a href="https://documentation-service.arm.com/static/5f8dacc8f86e16515cdb865a">ARM架构手册</a>，<code>beq</code>（实际上是<code>b</code>）指令的编码格式为：</p>
+<pre><code class="language-plaintext">32     28          24                 0
+ +------+-------+---+-----------------+
+ | cond | 1 0 1 | 0 | signed_immed_24 |
+ +------+-------+---+-----------------+
+</code></pre>
+<p>两条指令的跳转偏移量分别是<code>FFFFFE</code>和<code>FFFFFD</code>，经过符号扩展和移位，这两个偏移量将变为<code>FFFFFFF8</code>和<code>FFFFFFF4</code>。
+它们也是有符号数，所以是<code>-8</code>和<code>-12</code>。</p>
+<p>为什么不是<code>0</code>和<code>-4</code>呢？</p>
+<p>这是因为一些<a href="https://stackoverflow.com/a/24092329/12626946">历史原因</a>:</p>
+<blockquote>
+<p>The original ARM design had a 3-stage pipeline (fetch-decode-execute). To simplify the design they chose to have the PC read as the value currently on the instruction fetch address lines, rather than that of the currently executing instruction from 2 cycles ago. Since most PC-relative addresses are calculated at link time, it&#39;s easier to have the assembler/linker compensate for that 2-instruction offset than to design all the logic to &#39;correct&#39; the PC register.</p>
+</blockquote>
+<blockquote>
+<p>ARM最初的设计有一个三级流水线（预取-解码-执行）。为了简化设计，他们选择将PC的读入值直接指定为当前执行时的预取线上的地址，而不是2个周期前的那个地址 …… </p>
+</blockquote>
+<h2>MCS-51</h2>
+<p>汇编源码（8051.asm）：</p>
+<pre><code class="language-8051asm">l1:	jc              l1
+l2:	jc              l1
+</code></pre>
+<p>编译后进行反汇编看机器码：</p>
+<pre><code class="language-sh">sdas8051 -l 8051.lst 8051.asm &amp;&amp; head 8051.lst
+</code></pre>
+<pre><code class="language-8051asm">ASxxxx Assembler V02.00 + NoICE + SDCC mods  (Intel 8051), page 1.
+Hexadecimal [24-Bits]
+
+
+
+      000000 40 FE            [24]    1 l1:     jc              l1
+      000002 40 FC            [24]    2 l2:     jc              l1
+
+ASxxxx Assembler V02.00 + NoICE + SDCC mods  (Intel 8051), page 2.
+	    Hexadecimal [24-Bits]
+</code></pre>
+<p>根据<a href="https://www.keil.com/support/man/docs/is51/is51_opcodes.asp">8051指令集手册</a>，<code>JC</code>的编码格式是：</p>
+<pre><code class="language-plaintext">16        8          0
+ +--------+----------+
+ | OFFSET | 01000000 | 
+ +--------+----------+
+</code></pre>
+<p>所以<code>OFFSET</code>分别是<code>FE</code>（<code>-2</code>）和<code>FC</code>（<code>-4</code>）。</p>
+<p>和ARM类似，我们拿到的也是指令当前指令时候的<code>PC</code>值，所以需要减去前一条指令的长度。</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index-cn.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>

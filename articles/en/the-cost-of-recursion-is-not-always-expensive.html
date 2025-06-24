@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+
+
+	<link rel="stylesheet" href="/css/article.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
+	<title>OPF Programming - The Cost Of Recursion Is Not Always Expensive</title>
+</head>
+
+<body>
+	<div class="main">
+		<div class="article">
+			<h1 class="top-title"><p>The Cost Of Recursion Is Not Always Expensive</p>
+</h1>
+			<div class="article-meta">
+				<div class="article-date">2024-03-15T23:23:00+08:00</div>
+				<div class="article-tags">Algorithm,C,Recursion</div>
+			</div>
+			<p>During the communication with some friends today, I found that many people
+keep prejudices on <code>recursion</code>.</p>
+<p>Someone provides an example to show that recursion is much worse than loop.
+Here is his code:</p>
+<pre><code class="language-c">int fib_recur1(int n)
+{
+	if (n == 1)
+		return 1;
+	if (n == 2)
+		return 1;
+	return fib_recur1(n - 1) + fib_recur1(n - 2);
+}
+</code></pre>
+<p>Here is the competing <code>loop</code> version:</p>
+<pre><code class="language-c">int fib_loop(int n)
+{
+	int n1, n2, i, tmp;
+	n1 = 1;
+	n2 = 1;
+	for (i = 2; i &lt; n; i++) {
+		tmp = n2;
+		n2 = n1 + n2;
+		n1 = tmp;
+	}
+	return n2;
+}
+</code></pre>
+<p>In this competition, the loop version is definitely much faster.
+But it doesn&#39;t mean that <code>loop</code> is better than <code>recursion</code>.
+It&#39;s the algothrim who make the result so different.</p>
+<p>When you write the program in the same algothrim, the recursion version should
+look like this:</p>
+<pre><code class="language-c">int fib_recur2_(int n1, int n2, int cnt, int target)
+{
+	if (cnt &lt; target)
+		return fib_recur2_(n2, n1 + n2, cnt + 1, target);
+	else
+		return n2;
+}
+</code></pre>
+<p>Let&#39;s wrap the interface with another function:</p>
+<pre><code class="language-c">int fib_recur2(int n)
+{
+	return fib_recur2_(1, 1, 2, n);
+}
+</code></pre>
+<p>Let&#39;s run it:</p>
+<pre><code class="language-c">int main()
+{
+	printf(&quot;fib_recur1(10): %d\n&quot;, fib_recur1(10));
+	printf(&quot;fib_loop(10): %d\n&quot;, fib_loop(10));
+	printf(&quot;fib_recur2(10): %d\n&quot;, fib_recur2(10));
+	return 0;
+}
+</code></pre>
+<pre><code class="language-sh">$ gcc a.c &amp;&amp; ./a.exe
+fib_recur1(10): 55
+fib_loop(10): 55
+fib_recur2(10): 55
+</code></pre>
+<p>The recursion version still consumes more memory (the calling stack)
+since C language do not support tail call optimization).
+But there should be no big difference on the speed.</p>
+
+			<div class="footer">
+	All rights reserved. No reproduction or republication without written permission.<br/>
+	Email: <a href="mailto:wallacegibbon@aliyun.com">wallacegibbon@aliyun.com</a>
+</div>
+
+		</div>
+	</div>
+
+	<div class="toolbox-holder">
+	<a href="/index.html">⌂</a>
+</div>
+
+	<script>
+(function() {
+
+function adjust(a) {
+	if (/^http/.test(a.getAttribute("href")))
+		a.target = "_blank";
+}
+
+window.addEventListener("load", function () {
+	Array.from(document.querySelectorAll("a"))
+		.forEach(adjust);
+});
+
+})();
+</script>
+
+
+	<script>
+		window.addEventListener('load', function () { hljs.highlightAll(); });
+	</script>
+</body>
+</html>
